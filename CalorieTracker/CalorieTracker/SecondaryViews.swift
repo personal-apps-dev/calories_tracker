@@ -752,7 +752,7 @@ struct GoalSheetView: View {
                             .frame(maxHeight: .infinity)
                         Capsule()
                             .fill(accentOrange)
-                            .frame(width: max(4, geo.size.width * pct), height: 4)
+                            .frame(width: Swift.max(4, geo.size.width * pct), height: 4)
                             .frame(maxHeight: .infinity, alignment: .center)
                             .animation(.interactiveSpring(), value: pct)
                         // Thumb
@@ -761,7 +761,7 @@ struct GoalSheetView: View {
                             .overlay(Circle().stroke(accentOrange, lineWidth: 2))
                             .frame(width: 20, height: 20)
                             .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
-                            .offset(x: max(0, geo.size.width * pct - 10))
+                            .offset(x: Swift.max(0, geo.size.width * pct - 10))
                             .animation(.interactiveSpring(), value: pct)
                         // Hidden slider for touch input
                         Slider(value: Binding(
