@@ -4,7 +4,7 @@ import UIKit
 
 // MARK: - Camera Flow Coordinator
 
-enum CameraPhase { case viewfinder, analyzing, result }
+enum CameraPhase { case viewfinder, analyzing, result, error }
 
 struct CameraFlowView: View {
     let onClose: () -> Void
@@ -36,6 +36,12 @@ struct CameraFlowView: View {
                         onLog: onClose
                     )
                 }
+            case .error:
+                ErrorView(
+                    message: analysisError ?? "Unknown error",
+                    onClose: onClose,
+                    onRetry: { phase = .viewfinder }
+                )
             }
         }
         .onAppear { camera.start() }
@@ -51,23 +57,16 @@ struct CameraFlowView: View {
         if camera.isAuthorized {
             camera.capturePhoto()
         } else {
-            phase = .analyzing
-            Task {
-                try? await Task.sleep(nanoseconds: 2_400_000_000)
-                await MainActor.run {
-                    analysis = fallbackAnalysis
-                    phase = .result
-                }
-            }
+            analysisError = "Camera permission denied. Enable it in Settings → CalorieTracker → Camera."
+            phase = .error
         }
     }
 
     private func analyzeWithClaude(image: UIImage) async {
         guard !appState.claudeApiKey.isEmpty else {
-            try? await Task.sleep(nanoseconds: 2_400_000_000)
             await MainActor.run {
-                analysis = fallbackAnalysis
-                phase = .result
+                analysisError = "No API key set. Add your Anthropic API key in the Profile tab."
+                phase = .error
             }
             return
         }
@@ -82,8 +81,8 @@ struct CameraFlowView: View {
             }
         } catch {
             await MainActor.run {
-                analysis = fallbackAnalysis
-                phase = .result
+                analysisError = error.localizedDescription
+                phase = .error
             }
         }
     }
@@ -213,6 +212,78 @@ struct AnalyzingView: View {
         .onAppear {
             withAnimation(.linear(duration: 2.2)) {
                 scanY = 292  // end just inside bottom bracket
+            }
+        }
+    }
+}
+
+// MARK: - ErrorView
+
+struct ErrorView: View {
+    let message: String
+    let onClose: () -> Void
+    let onRetry: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color(UIColor.systemBackground).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(width: 36, height: 36)
+                            .background(Circle().fill(Color(UIColor.secondarySystemBackground)))
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 60)
+
+                Spacer()
+
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(accentOrange)
+
+                    Text("Analysis failed")
+                        .font(.system(size: 22, weight: .bold))
+                        .tracking(-0.4)
+
+                    ScrollView {
+                        Text(message)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 24)
+                    }
+                    .frame(maxHeight: 200)
+                }
+
+                Spacer()
+
+                VStack(spacing: 10) {
+                    Button(action: onRetry) {
+                        Text("Try again")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(accentOrange)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+
+                    Button("Close", action: onClose)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(height: 44)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 34)
             }
         }
     }

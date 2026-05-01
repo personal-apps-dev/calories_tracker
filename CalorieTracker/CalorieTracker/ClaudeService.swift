@@ -102,7 +102,8 @@ class ClaudeService {
             throw AnalysisError.invalidResponse
         }
         guard httpResponse.statusCode == 200 else {
-            throw AnalysisError.httpError(httpResponse.statusCode)
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw AnalysisError.httpError(httpResponse.statusCode, body)
         }
 
         let claudeResponse = try JSONDecoder().decode(ClaudeResponse.self, from: data)
@@ -144,17 +145,17 @@ class ClaudeService {
 enum AnalysisError: LocalizedError {
     case imageConversion
     case invalidResponse
-    case httpError(Int)
+    case httpError(Int, String)
     case noText
     case parseError
 
     var errorDescription: String? {
         switch self {
-        case .imageConversion:  return "Failed to process image"
-        case .invalidResponse:  return "Invalid server response"
-        case .httpError(let c): return "Server error \(c)"
-        case .noText:           return "No analysis text in response"
-        case .parseError:       return "Failed to parse nutrition data"
+        case .imageConversion:        return "Failed to process image"
+        case .invalidResponse:        return "Invalid server response"
+        case .httpError(let c, let b): return "API error \(c): \(b)"
+        case .noText:                 return "No analysis text in response"
+        case .parseError:             return "Failed to parse nutrition data"
         }
     }
 }
