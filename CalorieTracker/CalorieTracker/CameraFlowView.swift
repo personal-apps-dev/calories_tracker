@@ -1,0 +1,659 @@
+import SwiftUI
+import AVFoundation
+import UIKit
+
+// MARK: - Camera Flow Coordinator
+
+enum CameraPhase { case viewfinder, analyzing, result }
+
+struct CameraFlowView: View {
+    let onClose: () -> Void
+
+    @EnvironmentObject var appState: AppState
+    @StateObject private var camera = CameraManager()
+    @State private var phase: CameraPhase = .viewfinder
+    @State private var analysis: FoodAnalysis?
+    @State private var analysisError: String?
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            switch phase {
+            case .viewfinder:
+                ViewfinderView(
+                    camera: camera,
+                    onCapture: { startAnalysis() },
+                    onClose: onClose
+                )
+            case .analyzing:
+                AnalyzingView(onClose: onClose)
+            case .result:
+                if let analysis {
+                    ResultView(
+                        analysis: analysis,
+                        onClose: onClose,
+                        onLog: onClose
+                    )
+                }
+            }
+        }
+        .onAppear { camera.start() }
+        .onDisappear { camera.stop() }
+        .onChange(of: camera.capturedImage) { image in
+            guard let image, phase == .viewfinder else { return }
+            phase = .analyzing
+            Task { await analyzeWithClaude(image: image) }
+        }
+    }
+
+    private func startAnalysis() {
+        if camera.isAuthorized {
+            camera.capturePhoto()
+        } else {
+            phase = .analyzing
+            Task {
+                try? await Task.sleep(nanoseconds: 2_400_000_000)
+                await MainActor.run {
+                    analysis = fallbackAnalysis
+                    phase = .result
+                }
+            }
+        }
+    }
+
+    private func analyzeWithClaude(image: UIImage) async {
+        guard !appState.claudeApiKey.isEmpty else {
+            try? await Task.sleep(nanoseconds: 2_400_000_000)
+            await MainActor.run {
+                analysis = fallbackAnalysis
+                phase = .result
+            }
+            return
+        }
+
+        do {
+            let result = try await ClaudeService.shared.analyzeFood(
+                image: image, apiKey: appState.claudeApiKey
+            )
+            await MainActor.run {
+                analysis = result
+                phase = .result
+            }
+        } catch {
+            await MainActor.run {
+                analysis = fallbackAnalysis
+                phase = .result
+            }
+        }
+    }
+}
+
+// MARK: - ViewfinderView
+
+struct ViewfinderView: View {
+    @ObservedObject var camera: CameraManager
+    let onCapture: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            // Camera preview or mock scene
+            if camera.isAuthorized {
+                CameraPreviewView(session: camera.session)
+                    .ignoresSafeArea()
+            } else {
+                MockFoodScene()
+            }
+
+            // Reticle overlay
+            ReticleOverlay()
+
+            // Top controls
+            VStack {
+                HStack {
+                    GlassButton(sfName: "xmark", action: onClose)
+                    Spacer()
+                    GlassButton(sfName: "questionmark.circle", action: {})
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 60)
+
+                Capsule()
+                    .fill(Color.black.opacity(0.5))
+                    .overlay(
+                        HStack(spacing: 8) {
+                            Text("✨").font(.system(size: 13))
+                            Text("Point at your meal to scan")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 16)
+                    )
+                    .frame(height: 36)
+                    .frame(maxWidth: 240)
+                    .padding(.top, 16)
+
+                Spacer()
+            }
+
+            // Bottom controls
+            VStack {
+                Spacer()
+                VStack(spacing: 24) {
+                    HStack(spacing: 4) {
+                        ForEach(["Scan", "Barcode", "Label"], id: \.self) { mode in
+                            Text(mode)
+                                .font(.system(size: 12, weight: .semibold))
+                                .tracking(0.3)
+                                .foregroundColor(mode == "Scan" ? .white : .white.opacity(0.5))
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 14)
+                                .background(
+                                    Capsule()
+                                        .fill(mode == "Scan" ? Color.white.opacity(0.16) : Color.clear)
+                                )
+                        }
+                    }
+
+                    HStack(spacing: 60) {
+                        SmallCameraButton(sfName: "photo.on.rectangle")
+                        ShutterButton(action: onCapture)
+                        SmallCameraButton(sfName: "arrow.triangle.2.circlepath.camera")
+                    }
+                }
+                .padding(.bottom, 60)
+            }
+        }
+    }
+}
+
+// MARK: - AnalyzingView
+
+struct AnalyzingView: View {
+    let onClose: () -> Void
+    @State private var scanY: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            MockFoodScene()
+
+            ReticleOverlay(isAnalyzing: true, scanY: scanY)
+
+            VStack {
+                HStack {
+                    GlassButton(sfName: "xmark", action: onClose)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 60)
+
+                Capsule()
+                    .fill(Color.black.opacity(0.5))
+                    .overlay(
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(accentOrange)
+                                .frame(width: 6, height: 6)
+                                .opacity(0.8)
+                                .animation(.easeInOut(duration: 0.8).repeatForever(), value: scanY)
+                            Text("Analyzing food…")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 16)
+                    )
+                    .frame(height: 36)
+                    .frame(maxWidth: 220)
+                    .padding(.top, 16)
+
+                Spacer()
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 2.2)) {
+                scanY = 292  // end just inside bottom bracket
+            }
+        }
+    }
+}
+
+// MARK: - ResultView
+
+struct ResultView: View {
+    let analysis: FoodAnalysis
+    let onClose: () -> Void
+    let onLog: () -> Void
+
+    @State private var selectedMeal = "Lunch"
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                // Hero image
+                ZStack(alignment: .topLeading) {
+                    MockFoodScene()
+                        .frame(height: 280)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .padding(.horizontal, 16)
+
+                    HStack {
+                        confidencePill
+                        Spacer()
+                        closeButton
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.top, 12)
+                }
+                .padding(.top, 60)
+
+                // Title + kcal
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("✨ DETECTED")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .tracking(0.6)
+                        Text(analysis.name)
+                            .font(.system(size: 24, weight: .bold))
+                            .tracking(-0.6)
+                            .lineSpacing(2)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(analysis.kcal)")
+                            .font(.system(size: 28, weight: .bold))
+                            .tracking(-0.8)
+                        Text("kcal")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 6)
+
+                // Macro chips
+                HStack(spacing: 10) {
+                    MacroChip(label: "Protein", value: analysis.protein, color: Color(hex: "5B8DEF"))
+                    MacroChip(label: "Carbs",   value: analysis.carbs,   color: Color(hex: "F4B740"))
+                    MacroChip(label: "Fat",     value: analysis.fat,     color: Color(hex: "E86A6A"))
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 14)
+                .padding(.bottom, 20)
+
+                // Ingredients
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("INGREDIENTS · \(analysis.items.count)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(analysis.items.enumerated()), id: \.offset) { i, item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                    Text(item.weight)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                Spacer()
+                                HStack(alignment: .lastTextBaseline, spacing: 1) {
+                                    Text("\(item.kcal)")
+                                        .font(.system(size: 14, weight: .semibold))
+                                    Text(" kcal")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+
+                            if i < analysis.items.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
+                        }
+                    }
+                    .cardStyle(radius: 18)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+
+                // Meal selector
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ADD TO")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+
+                    HStack(spacing: 6) {
+                        ForEach(["Breakfast", "Lunch", "Snack", "Dinner"], id: \.self) { m in
+                            Button(m) {
+                                withAnimation(.spring(duration: 0.15)) { selectedMeal = m }
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(selectedMeal == m ? .white : .primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedMeal == m ? accentOrange : Color(UIColor.secondarySystemBackground))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(selectedMeal == m ? accentOrange : Color.primary.opacity(0.08), lineWidth: 1)
+                                    )
+                            )
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 100)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            HStack(spacing: 10) {
+                Button("Edit") { onClose() }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .frame(width: 80, height: 54)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                    )
+
+                Button(action: onLog) {
+                    Text("Log to \(selectedMeal) · \(analysis.kcal) kcal")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(accentOrange)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(color: accentOrange.opacity(0.4), radius: 12, y: 4)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 34)
+            .background(
+                LinearGradient(
+                    colors: [Color(UIColor.systemBackground).opacity(0), Color(UIColor.systemBackground)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                .frame(height: 120)
+            )
+        }
+        .background(Color(UIColor.systemBackground))
+    }
+
+    var confidencePill: some View {
+        HStack(spacing: 5) {
+            Circle().fill(Color(hex: "7CFC00")).frame(width: 6, height: 6)
+            Text("\(analysis.confidence)% match")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white)
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 10)
+        .background(Capsule().fill(Color.black.opacity(0.5)))
+    }
+
+    var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color.black.opacity(0.4)))
+        }
+    }
+}
+
+struct MacroChip: View {
+    let label: String
+    let value: Int
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle().fill(color).frame(width: 6, height: 6)
+                Text(label).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            }
+            HStack(alignment: .lastTextBaseline, spacing: 1) {
+                Text("\(value)")
+                    .font(.system(size: 18, weight: .bold))
+                    .tracking(-0.4)
+                Text("g")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .cardStyle(radius: 16)
+    }
+}
+
+// MARK: - Camera helpers
+
+struct ReticleOverlay: View {
+    var isAnalyzing: Bool = false
+    var scanY: CGFloat = 8  // starts just inside top bracket
+
+    private let size: CGFloat = 300
+    private let len: CGFloat = 36
+    private let w: CGFloat = 3
+
+    var body: some View {
+        ZStack {
+            // Top-Left corner
+            Rectangle().fill(accentOrange).frame(width: len, height: w)
+                .position(x: len / 2, y: w / 2)
+            Rectangle().fill(accentOrange).frame(width: w, height: len)
+                .position(x: w / 2, y: len / 2)
+
+            // Top-Right corner
+            Rectangle().fill(accentOrange).frame(width: len, height: w)
+                .position(x: size - len / 2, y: w / 2)
+            Rectangle().fill(accentOrange).frame(width: w, height: len)
+                .position(x: size - w / 2, y: len / 2)
+
+            // Bottom-Left corner
+            Rectangle().fill(accentOrange).frame(width: len, height: w)
+                .position(x: len / 2, y: size - w / 2)
+            Rectangle().fill(accentOrange).frame(width: w, height: len)
+                .position(x: w / 2, y: size - len / 2)
+
+            // Bottom-Right corner
+            Rectangle().fill(accentOrange).frame(width: len, height: w)
+                .position(x: size - len / 2, y: size - w / 2)
+            Rectangle().fill(accentOrange).frame(width: w, height: len)
+                .position(x: size - w / 2, y: size - len / 2)
+
+            // Animated scan line
+            if isAnalyzing {
+                Rectangle()
+                    .fill(accentOrange)
+                    .frame(width: size - 16, height: 2)
+                    .shadow(color: accentOrange, radius: 6)
+                    .shadow(color: accentOrange.opacity(0.4), radius: 12)
+                    .position(x: size / 2, y: scanY)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+struct MockFoodScene: View {
+    var body: some View {
+        ZStack {
+            RadialGradient(
+                colors: [Color(hex: "6B4226"), Color(hex: "2A1810"), Color(hex: "0A0604")],
+                center: .init(x: 0.5, y: 0.45), startRadius: 0, endRadius: 280
+            )
+
+            // Plate
+            Circle()
+                .fill(RadialGradient(
+                    colors: [Color(hex: "F5EFE6"), Color(hex: "D8CFC1"), Color(hex: "A89B85")],
+                    center: .init(x: 0.35, y: 0.3), startRadius: 0, endRadius: 140
+                ))
+                .frame(width: 280, height: 280)
+                .shadow(color: .black.opacity(0.4), radius: 30, y: 20)
+                .overlay(Text("🥑").font(.system(size: 120)))
+
+            Text("🍞")
+                .font(.system(size: 60))
+                .offset(x: -70, y: 15)
+            Text("🍳")
+                .font(.system(size: 56))
+                .offset(x: 60, y: 30)
+        }
+    }
+}
+
+struct GlassButton: View {
+    let sfName: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: sfName)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
+                .frame(width: 36, height: 36)
+                .background(
+                    Circle()
+                        .fill(Color.black.opacity(0.4))
+                        .overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 1))
+                )
+        }
+    }
+}
+
+struct ShutterButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .stroke(Color.white, lineWidth: 4)
+                    .frame(width: 76, height: 76)
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 60, height: 60)
+            }
+        }
+    }
+}
+
+struct SmallCameraButton: View {
+    let sfName: String
+
+    var body: some View {
+        Image(systemName: sfName)
+            .font(.system(size: 22, weight: .medium))
+            .foregroundColor(.white)
+            .frame(width: 44, height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.08))
+            )
+    }
+}
+
+// MARK: - AVFoundation Camera Manager
+
+class CameraManager: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
+    @Published var isAuthorized = false
+    @Published var capturedImage: UIImage?
+
+    let session = AVCaptureSession()
+    private let photoOutput = AVCapturePhotoOutput()
+
+    override init() {
+        super.init()
+    }
+
+    func start() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            isAuthorized = true
+            setupSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    self?.isAuthorized = granted
+                    if granted { self?.setupSession() }
+                }
+            }
+        default:
+            isAuthorized = false
+        }
+    }
+
+    func stop() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.session.stopRunning()
+        }
+    }
+
+    private func setupSession() {
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+              let input = try? AVCaptureDeviceInput(device: device) else { return }
+
+        session.beginConfiguration()
+        session.sessionPreset = .photo
+        if session.canAddInput(input) { session.addInput(input) }
+        if session.canAddOutput(photoOutput) { session.addOutput(photoOutput) }
+        session.commitConfiguration()
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.session.startRunning()
+        }
+    }
+
+    func capturePhoto() {
+        let settings = AVCapturePhotoSettings()
+        settings.flashMode = .auto
+        photoOutput.capturePhoto(with: settings, delegate: self)
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishProcessingPhoto photo: AVCapturePhoto,
+                     error: Error?) {
+        guard error == nil,
+              let data = photo.fileDataRepresentation(),
+              let image = UIImage(data: data) else { return }
+        DispatchQueue.main.async { self.capturedImage = image }
+    }
+}
+
+// MARK: - Camera preview UIViewRepresentable
+
+struct CameraPreviewView: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    class PreviewView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    }
+
+    func makeUIView(context: Context) -> PreviewView {
+        let view = PreviewView()
+        view.previewLayer.session = session
+        view.previewLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ uiView: PreviewView, context: Context) {
+        uiView.previewLayer.frame = uiView.bounds
+    }
+}
