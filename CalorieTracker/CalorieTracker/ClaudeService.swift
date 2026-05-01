@@ -37,7 +37,8 @@ class ClaudeService {
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
 
     func analyzeFood(image: UIImage, apiKey: String) async throws -> FoodAnalysis {
-        guard let imageData = image.jpegData(compressionQuality: 0.75) else {
+        let resized = Self.resize(image, maxDim: 1024)
+        guard let imageData = resized.jpegData(compressionQuality: 0.75) else {
             throw AnalysisError.imageConversion
         }
         let base64 = imageData.base64EncodedString()
@@ -130,6 +131,19 @@ class ClaudeService {
                 AnalysisIngredient(name: $0.name, kcal: $0.kcal, weight: $0.weight)
             }
         )
+    }
+
+    private static func resize(_ image: UIImage, maxDim: CGFloat) -> UIImage {
+        let w = image.size.width, h = image.size.height
+        let scale = min(1, maxDim / max(w, h))
+        if scale >= 1 { return image }
+        let newSize = CGSize(width: w * scale, height: h * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
 
     private func extractJSON(from text: String) -> String {
