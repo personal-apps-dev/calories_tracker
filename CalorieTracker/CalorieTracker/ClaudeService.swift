@@ -150,7 +150,7 @@ class ClaudeService {
         // Handle responses that might be wrapped in markdown code blocks
         if let start = text.range(of: "{"),
            let end = text.range(of: "}", options: .backwards) {
-            return String(text[start.lowerBound...end.upperBound])
+            return String(text[start.lowerBound..<end.upperBound])
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
