@@ -6,22 +6,16 @@ struct DiaryView: View {
     @EnvironmentObject var appState: AppState
     @State private var expanded: Int = 0
 
-    private var allDays: [DayRecord] {
-        let f = DateFormatter(); f.dateFormat = "MMM d"
-        let today = DayRecord(
-            label: "Today",
-            date: f.string(from: Date()),
-            consumed: appState.todayConsumedKcal,
-            storedGoal: nil,
-            mealCount: appState.todayMeals.count,
-            meals: appState.todayMeals
-        )
-        return [today] + sampleHistoryDays
+    private var allDays: [DayRecord] { appState.recentDays() }
+
+    private var hasHistory: Bool {
+        allDays.count > 1 || (allDays.first?.consumed ?? 0) > 0
     }
 
     private var avgCalories: Int {
-        let total = allDays.map(\.consumed).reduce(0, +)
-        return total / max(1, allDays.count)
+        let nonEmpty = allDays.filter { $0.consumed > 0 }
+        guard !nonEmpty.isEmpty else { return 0 }
+        return nonEmpty.map(\.consumed).reduce(0, +) / nonEmpty.count
     }
 
     var body: some View {
@@ -31,7 +25,9 @@ struct DiaryView: View {
                     Text("Diary")
                         .font(.system(size: 28, weight: .bold))
                         .tracking(-0.8)
-                    Text("\(allDays.count) days · 7-day avg \(avgCalories.formatted(.number)) kcal")
+                    Text(hasHistory
+                         ? "\(allDays.count) days · avg \(avgCalories.formatted(.number)) kcal"
+                         : "Your logged days will appear here")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -39,21 +35,42 @@ struct DiaryView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 18)
 
-                VStack(spacing: 10) {
-                    ForEach(Array(allDays.enumerated()), id: \.offset) { i, day in
-                        DayCardView(
-                            day: day,
-                            liveGoal: appState.goal,
-                            isOpen: expanded == i,
-                            onTap: { withAnimation(.spring(duration: 0.25)) { expanded = expanded == i ? -1 : i } }
-                        )
+                if hasHistory {
+                    VStack(spacing: 10) {
+                        ForEach(Array(allDays.enumerated()), id: \.offset) { i, day in
+                            DayCardView(
+                                day: day,
+                                liveGoal: appState.goal,
+                                isOpen: expanded == i,
+                                onTap: { withAnimation(.spring(duration: 0.25)) { expanded = expanded == i ? -1 : i } }
+                            )
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 110)
+                } else {
+                    diaryEmptyCard
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 110)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 110)
             }
         }
         .background(Color(UIColor.systemBackground))
+    }
+
+    var diaryEmptyCard: some View {
+        VStack(spacing: 10) {
+            Text("📓").font(.system(size: 38))
+            Text("No diary yet")
+                .font(.system(size: 16, weight: .semibold))
+            Text("Snap a meal with the camera to start building your history.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .cardStyle()
     }
 }
 
@@ -168,11 +185,16 @@ struct TrendsView: View {
 
     private var entries: [TrendEntry] {
         switch range {
-        case .week:  return weekTrends
-        case .month: return monthTrends
-        case .year:  return yearTrends
+        case .week:  return appState.weekTrendEntries()
+        case .month: return appState.monthTrendEntries()
+        case .year:  return appState.yearTrendEntries()
         }
     }
+
+    private var nonEmptyEntries: [TrendEntry] {
+        entries.filter { $0.consumed > 0 }
+    }
+    private var hasData: Bool { !nonEmptyEntries.isEmpty }
 
     private var rangeTitle: String {
         let f = DateFormatter()
@@ -190,25 +212,55 @@ struct TrendsView: View {
         }
     }
 
-    private var avg: Int { entries.map(\.consumed).reduce(0, +) / max(1, entries.count) }
-    private var avgQ: Int { entries.map(\.quality).reduce(0, +) / max(1, entries.count) }
-    private var onGoal: Int { entries.filter { $0.consumed <= appState.goal }.count }
-    private var onGoalPct: Int { Int(Double(onGoal) / Double(max(1, entries.count)) * 100) }
+    private var avg: Int {
+        guard !nonEmptyEntries.isEmpty else { return 0 }
+        return nonEmptyEntries.map(\.consumed).reduce(0, +) / nonEmptyEntries.count
+    }
+    private var avgQ: Int {
+        guard !nonEmptyEntries.isEmpty else { return 0 }
+        return nonEmptyEntries.map(\.quality).reduce(0, +) / nonEmptyEntries.count
+    }
+    private var onGoal: Int { nonEmptyEntries.filter { $0.consumed <= appState.goal }.count }
+    private var onGoalPct: Int {
+        guard !nonEmptyEntries.isEmpty else { return 0 }
+        return Int(Double(onGoal) / Double(nonEmptyEntries.count) * 100)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 rangePicker
-                statCards
-                qualityHero
-                metricToggle
-                barChart
-                macroDonut
+                if hasData {
+                    statCards
+                    qualityHero
+                    metricToggle
+                    barChart
+                    macroDonut
+                } else {
+                    emptyCard
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                }
             }
             .padding(.bottom, 110)
         }
         .background(Color(UIColor.systemBackground))
+    }
+
+    var emptyCard: some View {
+        VStack(spacing: 10) {
+            Text("📊").font(.system(size: 38))
+            Text("No trends yet")
+                .font(.system(size: 16, weight: .semibold))
+            Text("Start logging meals and your weekly, monthly, and yearly stats will appear here.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .cardStyle()
     }
 
     var header: some View {
@@ -365,16 +417,21 @@ struct TrendsView: View {
     }
 
     var macroDonut: some View {
-        HStack(spacing: 18) {
-            MacroDonutView()
+        let (pPct, cPct, fPct) = appState.macroPercents()
+        return HStack(spacing: 18) {
+            MacroDonutView(segments: [
+                (Double(pPct) / 100, Color(hex: "5B8DEF")),
+                (Double(cPct) / 100, Color(hex: "F4B740")),
+                (Double(fPct) / 100, Color(hex: "E86A6A")),
+            ])
             VStack(alignment: .leading, spacing: 10) {
                 Text("Macro split")
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.bottom, 2)
                 ForEach([
-                    ("Protein", 22, Color(hex: "5B8DEF")),
-                    ("Carbs",   48, Color(hex: "F4B740")),
-                    ("Fat",     30, Color(hex: "E86A6A")),
+                    ("Protein", pPct, Color(hex: "5B8DEF")),
+                    ("Carbs",   cPct, Color(hex: "F4B740")),
+                    ("Fat",     fPct, Color(hex: "E86A6A")),
                 ], id: \.0) { label, pct, color in
                     HStack(spacing: 8) {
                         Circle().fill(color).frame(width: 8, height: 8)
@@ -455,11 +512,7 @@ struct BarChartView: View {
 }
 
 struct MacroDonutView: View {
-    private let segments: [(Double, Color)] = [
-        (0.22, Color(hex: "5B8DEF")),
-        (0.48, Color(hex: "F4B740")),
-        (0.30, Color(hex: "E86A6A")),
-    ]
+    let segments: [(Double, Color)]
     private let r: CGFloat = 36
     private let stroke: CGFloat = 12
 
@@ -471,11 +524,13 @@ struct MacroDonutView: View {
 
             ForEach(Array(segments.enumerated()), id: \.offset) { i, seg in
                 let offset = segments.prefix(i).map(\.0).reduce(0, +)
-                Circle()
-                    .trim(from: offset, to: offset + seg.0 - 0.01)
-                    .stroke(seg.1, style: StrokeStyle(lineWidth: stroke, lineCap: .butt))
-                    .frame(width: r * 2, height: r * 2)
-                    .rotationEffect(.degrees(-90))
+                if seg.0 > 0 {
+                    Circle()
+                        .trim(from: offset, to: max(offset, offset + seg.0 - 0.01))
+                        .stroke(seg.1, style: StrokeStyle(lineWidth: stroke, lineCap: .butt))
+                        .frame(width: r * 2, height: r * 2)
+                        .rotationEffect(.degrees(-90))
+                }
             }
         }
         .frame(width: 88, height: 88)
@@ -645,13 +700,13 @@ struct ProfileView: View {
                 ))
                 .frame(width: 64, height: 64)
                 .overlay(
-                    Text(String(appState.userName.prefix(1)).uppercased())
+                    Text(initials(for: appState.userName))
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(.white)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(appState.userName)
+                Text(appState.userName.isEmpty ? "Set your name" : appState.userName)
                     .font(.system(size: 18, weight: .bold))
                     .tracking(-0.4)
                 Text(appState.memberSinceLabel)

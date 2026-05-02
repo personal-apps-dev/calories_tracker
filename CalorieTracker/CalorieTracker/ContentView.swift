@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var activeTab: AppTab = .home
     @State private var showCamera = false
     @State private var showGoalSheet = false
+    @State private var showNamePrompt = false
+    @State private var nameDraft = ""
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -24,6 +26,23 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraFlowView(onClose: { showCamera = false })
+        }
+        .onAppear {
+            let bare = appState.userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if bare && !appState.hasSeenNamePrompt {
+                showNamePrompt = true
+            }
+        }
+        .alert("Welcome 👋", isPresented: $showNamePrompt) {
+            TextField("Your name", text: $nameDraft)
+                .textInputAutocapitalization(.words)
+            Button("Continue") {
+                let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { appState.userName = trimmed }
+                appState.hasSeenNamePrompt = true
+            }
+        } message: {
+            Text("What should we call you?")
         }
     }
 
