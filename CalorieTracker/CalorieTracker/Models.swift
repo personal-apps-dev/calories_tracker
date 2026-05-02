@@ -59,36 +59,132 @@ struct TrendEntry {
     let quality: Int
 }
 
-// MARK: - Today's mock data
+// MARK: - LoggedMeal (persisted)
 
-let todayConsumed = 1420
-let todayStreak = 12
-let todayCaloriesBurned = 487
+struct LoggedMeal: Codable, Identifiable {
+    let id: UUID
+    let timestamp: Date
+    let type: String
+    let emoji: String
+    let name: String
+    let kcal: Int
+    let protein: Int
+    let carbs: Int
+    let fat: Int
+    let quality: Int
 
-let todayProtein = MacroStat(grams: 78, goal: 140)
-let todayCarbs   = MacroStat(grams: 165, goal: 240)
-let todayFat     = MacroStat(grams: 52, goal: 75)
+    init(id: UUID = UUID(), timestamp: Date = Date(),
+         type: String, emoji: String, name: String,
+         kcal: Int, protein: Int, carbs: Int, fat: Int, quality: Int) {
+        self.id = id
+        self.timestamp = timestamp
+        self.type = type
+        self.emoji = emoji
+        self.name = name
+        self.kcal = kcal
+        self.protein = protein
+        self.carbs = carbs
+        self.fat = fat
+        self.quality = quality
+    }
 
-let todayActivities: [Activity] = [
-    Activity(id: 1, type: "Walk",     emoji: "🚶", kcal: 142, duration: "38 min"),
-    Activity(id: 2, type: "Strength", emoji: "🏋️", kcal: 215, duration: "45 min"),
-    Activity(id: 3, type: "Cycling",  emoji: "🚴", kcal: 130, duration: "22 min"),
-]
+    var asMeal: Meal {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        return Meal(
+            id: id.hashValue,
+            type: type,
+            emoji: emoji,
+            name: name,
+            kcal: kcal,
+            time: f.string(from: timestamp),
+            quality: quality,
+            gradient: gradientFor(type: type)
+        )
+    }
 
-let todayMeals: [Meal] = [
-    Meal(id: 1, type: "Breakfast", emoji: "🥣", name: "Greek yogurt & berries",
-         kcal: 320, time: "8:14 AM",  quality: 88,
-         gradient: [Color(hex: "F4E4C1"), Color(hex: "E8B4B8")]),
-    Meal(id: 2, type: "Lunch",     emoji: "🥗", name: "Chicken caesar wrap",
-         kcal: 540, time: "12:48 PM", quality: 64,
-         gradient: [Color(hex: "C8E6C9"), Color(hex: "81C784")]),
-    Meal(id: 3, type: "Snack",     emoji: "🍎", name: "Apple + almond butter",
-         kcal: 220, time: "3:22 PM",  quality: 92,
-         gradient: [Color(hex: "FFCCBC"), Color(hex: "FF8A65")]),
-    Meal(id: 4, type: "Dinner",    emoji: "🍝", name: "Pasta primavera",
-         kcal: 340, time: "7:05 PM",  quality: 71,
-         gradient: [Color(hex: "FFE0B2"), Color(hex: "FFB74D")]),
-]
+    private static let storeKey = "loggedMeals.v1"
+
+    static func loadAll() -> [LoggedMeal] {
+        guard let data = UserDefaults.standard.data(forKey: storeKey),
+              let arr = try? JSONDecoder().decode([LoggedMeal].self, from: data) else {
+            return []
+        }
+        return arr
+    }
+
+    static func saveAll(_ meals: [LoggedMeal]) {
+        if let data = try? JSONEncoder().encode(meals) {
+            UserDefaults.standard.set(data, forKey: storeKey)
+        }
+    }
+}
+
+func gradientFor(type: String) -> [Color] {
+    switch type.lowercased() {
+    case "breakfast", "brunch":
+        return [Color(hex: "F4E4C1"), Color(hex: "E8B4B8")]
+    case "lunch":
+        return [Color(hex: "C8E6C9"), Color(hex: "81C784")]
+    case "snack":
+        return [Color(hex: "FFCCBC"), Color(hex: "FF8A65")]
+    case "dinner":
+        return [Color(hex: "FFE0B2"), Color(hex: "FFB74D")]
+    default:
+        return [Color(hex: "F4E4C1"), Color(hex: "E8B4B8")]
+    }
+}
+
+func mealTypeForNow(_ date: Date = Date()) -> String {
+    let h = Calendar.current.component(.hour, from: date)
+    switch h {
+    case 5..<11:  return "Breakfast"
+    case 11..<15: return "Lunch"
+    case 15..<17: return "Snack"
+    case 17..<22: return "Dinner"
+    default:      return "Snack"
+    }
+}
+
+func mealEmojiFor(name: String, type: String) -> String {
+    let n = name.lowercased()
+    if n.contains("salad") { return "🥗" }
+    if n.contains("burger") { return "🍔" }
+    if n.contains("pizza") { return "🍕" }
+    if n.contains("pasta") || n.contains("spaghetti") { return "🍝" }
+    if n.contains("rice") || n.contains("bowl") { return "🍚" }
+    if n.contains("sushi") || n.contains("salmon") { return "🍣" }
+    if n.contains("egg") { return "🍳" }
+    if n.contains("bread") || n.contains("toast") || n.contains("sandwich") { return "🥪" }
+    if n.contains("apple") || n.contains("fruit") { return "🍎" }
+    if n.contains("yogurt") || n.contains("oat") || n.contains("cereal") { return "🥣" }
+    if n.contains("chicken") { return "🍗" }
+    if n.contains("steak") || n.contains("beef") { return "🥩" }
+    if n.contains("avocado") { return "🥑" }
+    switch type.lowercased() {
+    case "breakfast": return "🥣"
+    case "lunch":     return "🥗"
+    case "snack":     return "🍎"
+    case "dinner":    return "🍽️"
+    default:          return "🍽️"
+    }
+}
+
+// Quality heuristic for new logs from a Claude analysis. Penalizes high
+// fat / low protein density; rewards reasonable kcal-to-protein ratios.
+func estimateQuality(kcal: Int, protein: Int, carbs: Int, fat: Int) -> Int {
+    guard kcal > 0 else { return 60 }
+    let proteinPct = Double(protein * 4) / Double(kcal)
+    let fatPct     = Double(fat * 9)     / Double(kcal)
+    var score = 70.0
+    score += (proteinPct - 0.20) * 80   // higher protein density helps
+    score -= max(0, fatPct - 0.35) * 90  // penalize >35% fat
+    if kcal > 800 { score -= 8 }
+    if kcal < 200 { score += 4 }
+    return max(20, min(98, Int(score.rounded())))
+}
+
+// MARK: - Sample data for Diary / Trends prototypes
 
 let fallbackAnalysis = FoodAnalysis(
     name: "Avocado toast w/ poached egg",
@@ -102,10 +198,8 @@ let fallbackAnalysis = FoodAnalysis(
     ]
 )
 
-// MARK: - History data
-
-let historyDays: [DayRecord] = [
-    DayRecord(label: "Today",     date: "Apr 30", consumed: 1420, storedGoal: nil,  mealCount: 4, meals: todayMeals),
+// Historical data kept as a sample placeholder until backend/sync is built.
+let sampleHistoryDays: [DayRecord] = [
     DayRecord(label: "Yesterday", date: "Apr 29", consumed: 2080, storedGoal: 2200, mealCount: 4, meals: [
         Meal(id: 5,  type: "Breakfast", emoji: "🥞", name: "Pancakes & maple syrup",
              kcal: 480, time: "8:30 AM",  quality: 62, gradient: [Color(hex: "FFE0B2"), Color(hex: "FFB74D")]),
@@ -139,8 +233,6 @@ let historyDays: [DayRecord] = [
     DayRecord(label: "Sat",  date: "Apr 26", consumed: 2150, storedGoal: 2200, mealCount: 4, meals: []),
     DayRecord(label: "Fri",  date: "Apr 25", consumed: 1950, storedGoal: 2200, mealCount: 4, meals: []),
 ]
-
-// MARK: - Trend data
 
 let weekTrends: [TrendEntry] = [
     TrendEntry(label: "Thu", consumed: 1980, quality: 72),

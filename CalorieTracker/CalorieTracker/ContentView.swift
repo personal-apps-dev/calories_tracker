@@ -30,10 +30,17 @@ struct ContentView: View {
     @ViewBuilder
     var tabContent: some View {
         switch activeTab {
-        case .home:    HomeView(showGoalSheet: $showGoalSheet)
-        case .diary:   DiaryView()
-        case .trends:  TrendsView()
-        case .profile: ProfileView(showGoalSheet: $showGoalSheet)
+        case .home:
+            HomeView(
+                showGoalSheet: $showGoalSheet,
+                onAvatarTap: { activeTab = .profile }
+            )
+        case .diary:
+            DiaryView()
+        case .trends:
+            TrendsView()
+        case .profile:
+            ProfileView(showGoalSheet: $showGoalSheet)
         }
     }
 }

@@ -16,6 +16,9 @@
 		B10000000000000000000007 /* CameraFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CameraFlowView.swift */; };
 		B10000000000000000000008 /* ClaudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* ClaudeService.swift */; };
 		B10000000000000000000009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* Assets.xcassets */; };
+		B1000000000000000000000C /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* Achievements.swift */; };
+		B1000000000000000000000D /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* HealthKitService.swift */; };
+		B1000000000000000000000F /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* HealthKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +32,10 @@
 		A10000000000000000000008 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000000000000000000000B /* CalorieTracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CalorieTracker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000000000000000000000C /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
+		A1000000000000000000000D /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
+		A1000000000000000000000E /* CalorieTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalorieTracker.entitlements; sourceTree = "<group>"; };
+		A1000000000000000000000F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -36,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1000000000000000000000F /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -46,6 +54,7 @@
 			isa = PBXGroup;
 			children = (
 				D10000000000000000000002 /* CalorieTracker */,
+				D10000000000000000000004 /* Frameworks */,
 				D10000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -61,6 +70,9 @@
 				A10000000000000000000006 /* SecondaryViews.swift */,
 				A10000000000000000000007 /* CameraFlowView.swift */,
 				A10000000000000000000008 /* ClaudeService.swift */,
+				A1000000000000000000000C /* Achievements.swift */,
+				A1000000000000000000000D /* HealthKitService.swift */,
+				A1000000000000000000000E /* CalorieTracker.entitlements */,
 				A10000000000000000000009 /* Assets.xcassets */,
 			);
 			path = CalorieTracker;
@@ -72,6 +84,14 @@
 				A1000000000000000000000B /* CalorieTracker.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000004 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000000F /* HealthKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -151,6 +171,8 @@
 				B10000000000000000000006 /* SecondaryViews.swift in Sources */,
 				B10000000000000000000007 /* CameraFlowView.swift in Sources */,
 				B10000000000000000000008 /* ClaudeService.swift in Sources */,
+				B1000000000000000000000C /* Achievements.swift in Sources */,
+				B1000000000000000000000D /* HealthKitService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,10 +184,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = CalorieTracker/CalorieTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Used to photograph your meals for nutritional analysis.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your active energy and workouts so we can show how many calories you've burned today.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Used to log nutrition information from meals you analyze in this app.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -188,10 +213,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = CalorieTracker/CalorieTracker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Used to photograph your meals for nutritional analysis.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your active energy and workouts so we can show how many calories you've burned today.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Used to log nutrition information from meals you analyze in this app.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;

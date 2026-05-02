@@ -33,7 +33,10 @@ struct CameraFlowView: View {
                     ResultView(
                         analysis: analysis,
                         onClose: onClose,
-                        onLog: onClose
+                        onLog: { mealType in
+                            logMeal(analysis: analysis, mealType: mealType)
+                            onClose()
+                        }
                     )
                 }
             case .error:
@@ -60,6 +63,27 @@ struct CameraFlowView: View {
             analysisError = "Camera permission denied. Enable it in Settings → CalorieTracker → Camera."
             phase = .error
         }
+    }
+
+    @MainActor
+    private func logMeal(analysis: FoodAnalysis, mealType: String) {
+        let quality = estimateQuality(
+            kcal: analysis.kcal,
+            protein: analysis.protein,
+            carbs: analysis.carbs,
+            fat: analysis.fat
+        )
+        let meal = LoggedMeal(
+            type: mealType,
+            emoji: mealEmojiFor(name: analysis.name, type: mealType),
+            name: analysis.name,
+            kcal: analysis.kcal,
+            protein: analysis.protein,
+            carbs: analysis.carbs,
+            fat: analysis.fat,
+            quality: quality
+        )
+        appState.logMeal(meal)
     }
 
     private func analyzeWithClaude(image: UIImage) async {
@@ -294,9 +318,9 @@ struct ErrorView: View {
 struct ResultView: View {
     let analysis: FoodAnalysis
     let onClose: () -> Void
-    let onLog: () -> Void
+    let onLog: (String) -> Void
 
-    @State private var selectedMeal = "Lunch"
+    @State private var selectedMeal: String = mealTypeForNow()
 
     var body: some View {
         ScrollView {
@@ -436,7 +460,7 @@ struct ResultView: View {
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
 
-                Button(action: onLog) {
+                Button(action: { onLog(selectedMeal) }) {
                     Text("Log to \(selectedMeal) · \(analysis.kcal) kcal")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
