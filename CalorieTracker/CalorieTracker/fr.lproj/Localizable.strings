@@ -1,0 +1,60 @@
+"Hey, %@ 👋" = "Salut %@ 👋";
+"Hey, there 👋" = "Salut 👋";
+
+"Profile" = "Profil";
+"Diary" = "Journal";
+"Trends" = "Tendances";
+"Achievements" = "Succès";
+
+"Today's meals" = "Repas du jour";
+"%d logged" = "%d enregistrés";
+"No meals logged today" = "Aucun repas enregistré aujourd'hui";
+"Tap the camera button below to snap a meal and have it analyzed." = "Appuyez sur l'appareil photo ci-dessous pour photographier un repas et le faire analyser.";
+"%d day streak" = "Série de %d jours";
+"Calories burned" = "Calories brûlées";
+"kcal · today" = "kcal · aujourd'hui";
+"Connect Apple Health" = "Connecter Apple Santé";
+"No workouts recorded yet today." = "Aucun entraînement enregistré aujourd'hui.";
+"remaining" = "restant";
+"over by" = "dépassé de";
+"Goal · %@ kcal" = "Objectif · %@ kcal";
+"Nutrition Score" = "Score nutritionnel";
+
+"Protein" = "Protéines";
+"Carbs" = "Glucides";
+"Fat" = "Lipides";
+"Macro split" = "Répartition des macros";
+
+"Goals" = "Objectifs";
+"Account" = "Compte";
+"Health" = "Santé";
+"AI Analysis" = "Analyse IA";
+"About" = "À propos";
+"Daily calorie goal" = "Objectif calorique quotidien";
+"Display name" = "Nom d'affichage";
+"Language" = "Langue";
+"Dark mode" = "Mode sombre";
+"Notifications" = "Notifications";
+"Apple Health" = "Apple Santé";
+"Claude API Key" = "Clé API Claude";
+
+"Describe a meal" = "Décrire un repas";
+"Analyze" = "Analyser";
+"Cancel" = "Annuler";
+"Log to %@ · %d kcal" = "Ajouter à %@ · %d kcal";
+
+"Breakfast" = "Petit-déjeuner";
+"Lunch" = "Déjeuner";
+"Dinner" = "Dîner";
+"Snack" = "En-cas";
+
+"No diary yet" = "Journal vide";
+"Snap a meal with the camera to start building your history." = "Photographiez un repas pour commencer votre historique.";
+"No trends yet" = "Pas encore de tendances";
+"Start logging meals and your weekly, monthly, and yearly stats will appear here." = "Enregistrez vos repas et vos statistiques hebdomadaires, mensuelles et annuelles apparaîtront ici.";
+
+"Meal details" = "Détails du repas";
+"Done" = "Terminé";
+"Why this score" = "Pourquoi ce score";
+"Macros" = "Macronutriments";
+"kcal total" = "kcal au total";

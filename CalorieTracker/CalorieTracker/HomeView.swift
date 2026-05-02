@@ -54,9 +54,15 @@ struct HomeView: View {
                 Text(dateString)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.secondary)
-                Text("Hey, \(appState.userName.isEmpty ? "there" : appState.userName) 👋")
-                    .font(.system(size: 28, weight: .bold))
-                    .tracking(-0.8)
+                Group {
+                    if appState.userName.isEmpty {
+                        Text("Hey, there 👋")
+                    } else {
+                        Text("Hey, \(appState.userName) 👋")
+                    }
+                }
+                .font(.system(size: 28, weight: .bold))
+                .tracking(-0.8)
             }
             Spacer()
             Button(action: onAvatarTap) {
@@ -313,7 +319,7 @@ struct MacroBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -636,10 +642,11 @@ struct MealRowView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .lastTextBaseline) {
-                    Text(meal.type.uppercased())
+                    Text(LocalizedStringKey(meal.type))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
                         .tracking(0.6)
+                        .textCase(.uppercase)
                     Spacer()
                     HStack(alignment: .lastTextBaseline, spacing: 1) {
                         Text("\(meal.kcal)")

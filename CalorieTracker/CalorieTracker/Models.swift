@@ -59,6 +59,46 @@ struct TrendEntry {
     let quality: Int
 }
 
+// MARK: - Language
+
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system, english, ukrainian, french, spanish
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .system:    return "System"
+        case .english:   return "English"
+        case .ukrainian: return "Українська"
+        case .french:    return "Français"
+        case .spanish:   return "Español"
+        }
+    }
+
+    /// ISO code used for AppleLanguages override and Locale.
+    /// `nil` when set to follow the system.
+    var localeCode: String? {
+        switch self {
+        case .system:    return nil
+        case .english:   return "en"
+        case .ukrainian: return "uk"
+        case .french:    return "fr"
+        case .spanish:   return "es"
+        }
+    }
+
+    /// Human name for the Claude prompt. `nil` means no override (English).
+    var claudePromptName: String? {
+        switch self {
+        case .system, .english: return nil
+        case .ukrainian:        return "Ukrainian"
+        case .french:           return "French"
+        case .spanish:          return "Spanish"
+        }
+    }
+}
+
 // MARK: - LoggedMeal (persisted)
 
 struct LoggedMeal: Codable, Identifiable {
