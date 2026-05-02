@@ -19,6 +19,7 @@
 		B1000000000000000000000C /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* Achievements.swift */; };
 		B1000000000000000000000D /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* HealthKitService.swift */; };
 		B1000000000000000000000F /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* HealthKit.framework */; };
+		B10000000000000000000010 /* MealDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* MealDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +37,7 @@
 		A1000000000000000000000D /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		A1000000000000000000000E /* CalorieTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalorieTracker.entitlements; sourceTree = "<group>"; };
 		A1000000000000000000000F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
+		A10000000000000000000010 /* MealDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +74,7 @@
 				A10000000000000000000008 /* ClaudeService.swift */,
 				A1000000000000000000000C /* Achievements.swift */,
 				A1000000000000000000000D /* HealthKitService.swift */,
+				A10000000000000000000010 /* MealDetailView.swift */,
 				A1000000000000000000000E /* CalorieTracker.entitlements */,
 				A10000000000000000000009 /* Assets.xcassets */,
 			);
@@ -173,6 +176,7 @@
 				B10000000000000000000008 /* ClaudeService.swift in Sources */,
 				B1000000000000000000000C /* Achievements.swift in Sources */,
 				B1000000000000000000000D /* HealthKitService.swift in Sources */,
+				B10000000000000000000010 /* MealDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

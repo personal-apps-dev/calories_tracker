@@ -5,6 +5,7 @@ import SwiftUI
 struct DiaryView: View {
     @EnvironmentObject var appState: AppState
     @State private var expanded: Int = 0
+    @State private var selectedLogged: LoggedMeal?
 
     private var allDays: [DayRecord] { appState.recentDays() }
 
@@ -42,7 +43,12 @@ struct DiaryView: View {
                                 day: day,
                                 liveGoal: appState.goal,
                                 isOpen: expanded == i,
-                                onTap: { withAnimation(.spring(duration: 0.25)) { expanded = expanded == i ? -1 : i } }
+                                onTap: { withAnimation(.spring(duration: 0.25)) { expanded = expanded == i ? -1 : i } },
+                                onMealTap: { meal in
+                                    if let lm = appState.loggedMeals.first(where: { $0.id.hashValue == meal.id }) {
+                                        selectedLogged = lm
+                                    }
+                                }
                             )
                         }
                     }
@@ -56,6 +62,9 @@ struct DiaryView: View {
             }
         }
         .background(Color(UIColor.systemBackground))
+        .sheet(item: $selectedLogged) { lm in
+            MealDetailView(meal: lm)
+        }
     }
 
     var diaryEmptyCard: some View {
@@ -79,6 +88,7 @@ struct DayCardView: View {
     let liveGoal: Int
     let isOpen: Bool
     let onTap: () -> Void
+    var onMealTap: ((Meal) -> Void)? = nil
 
     private var effectiveGoal: Int { day.storedGoal ?? liveGoal }
     private var over: Bool { day.consumed > effectiveGoal }
@@ -105,28 +115,36 @@ struct DayCardView: View {
                 Divider().padding(.leading, 74)
                 VStack(spacing: 0) {
                     ForEach(day.meals) { meal in
-                        HStack(spacing: 12) {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(LinearGradient(
-                                    colors: meal.gradient,
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                ))
-                                .frame(width: 36, height: 36)
-                                .overlay(Text(meal.emoji).font(.system(size: 18)))
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(meal.name)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .lineLimit(1)
-                                Text("\(meal.type) · \(meal.time)")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.tertiary)
+                        Button {
+                            onMealTap?(meal)
+                        } label: {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(LinearGradient(
+                                        colors: meal.gradient,
+                                        startPoint: .topLeading, endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 36, height: 36)
+                                    .overlay(Text(meal.emoji).font(.system(size: 18)))
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(meal.name)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                    Text("\(meal.type) · \(meal.time)")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                Spacer()
+                                Text("\(meal.kcal)")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.primary)
                             }
-                            Spacer()
-                            Text("\(meal.kcal)")
-                                .font(.system(size: 14, weight: .semibold))
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 16)
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -321,7 +339,7 @@ struct TrendsView: View {
         return HStack(alignment: .top, spacing: 14) {
             // Left: Avg Food Quality pie chart + score
             VStack(alignment: .leading, spacing: 8) {
-                Text("Avg food quality")
+                Text("Nutrition Score")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                 QualityRingView(value: avgQ, size: 76, strokeW: 8)
