@@ -184,6 +184,100 @@ func estimateQuality(kcal: Int, protein: Int, carbs: Int, fat: Int) -> Int {
     return max(20, min(98, Int(score.rounded())))
 }
 
+// MARK: - Score explanation
+
+enum FactorImpact { case positive, neutral, negative }
+
+struct QualityFactor: Identifiable {
+    let id = UUID()
+    let category: String   // e.g. "Protein"
+    let title: String      // e.g. "Strong protein"
+    let detail: String     // e.g. "26% of calories"
+    let impact: FactorImpact
+}
+
+func qualityFactors(kcal: Int, protein: Int, carbs: Int, fat: Int) -> [QualityFactor] {
+    guard kcal > 0 else { return [] }
+
+    let proteinPct = Int((Double(protein * 4) / Double(kcal) * 100).rounded())
+    let carbsPct   = Int((Double(carbs   * 4) / Double(kcal) * 100).rounded())
+    let fatPct     = Int((Double(fat     * 9) / Double(kcal) * 100).rounded())
+
+    var out: [QualityFactor] = []
+
+    // Protein density
+    if proteinPct >= 25 {
+        out.append(.init(category: "Protein",
+                         title: "Excellent protein density",
+                         detail: "\(proteinPct)% of calories — keeps you full and supports muscle.",
+                         impact: .positive))
+    } else if proteinPct >= 15 {
+        out.append(.init(category: "Protein",
+                         title: "Decent protein",
+                         detail: "\(proteinPct)% of calories from protein.",
+                         impact: .neutral))
+    } else {
+        out.append(.init(category: "Protein",
+                         title: "Low protein",
+                         detail: "Only \(proteinPct)% of calories from protein — try to add a lean source.",
+                         impact: .negative))
+    }
+
+    // Fat density
+    if fatPct > 45 {
+        out.append(.init(category: "Fat",
+                         title: "Very fat-heavy",
+                         detail: "\(fatPct)% of calories from fat — consider trimming oils or fatty cuts.",
+                         impact: .negative))
+    } else if fatPct > 35 {
+        out.append(.init(category: "Fat",
+                         title: "High fat",
+                         detail: "\(fatPct)% of calories from fat.",
+                         impact: .negative))
+    } else if fatPct >= 20 {
+        out.append(.init(category: "Fat",
+                         title: "Balanced fat",
+                         detail: "\(fatPct)% of calories from fat — within a healthy range.",
+                         impact: .neutral))
+    } else {
+        out.append(.init(category: "Fat",
+                         title: "Lean profile",
+                         detail: "Only \(fatPct)% of calories from fat.",
+                         impact: .positive))
+    }
+
+    // Carbs (informational mostly)
+    out.append(.init(category: "Carbs",
+                     title: "Carbs share",
+                     detail: "\(carbsPct)% of calories from carbs.",
+                     impact: .neutral))
+
+    // Portion size
+    if kcal > 900 {
+        out.append(.init(category: "Portion",
+                         title: "Large portion",
+                         detail: "\(kcal) kcal in one sitting — fine occasionally, watch the daily total.",
+                         impact: .negative))
+    } else if kcal > 600 {
+        out.append(.init(category: "Portion",
+                         title: "Substantial meal",
+                         detail: "\(kcal) kcal — typical main-course size.",
+                         impact: .neutral))
+    } else if kcal < 200 {
+        out.append(.init(category: "Portion",
+                         title: "Light snack",
+                         detail: "Only \(kcal) kcal — easy to keep on track.",
+                         impact: .positive))
+    } else {
+        out.append(.init(category: "Portion",
+                         title: "Reasonable size",
+                         detail: "\(kcal) kcal — moderate portion.",
+                         impact: .neutral))
+    }
+
+    return out
+}
+
 // MARK: - Sample data for Diary / Trends prototypes
 
 let fallbackAnalysis = FoodAnalysis(

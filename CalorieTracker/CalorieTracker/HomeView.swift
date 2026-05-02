@@ -13,6 +13,7 @@ struct HomeView: View {
     var onAvatarTap: () -> Void = {}
 
     @State private var showAchievements = false
+    @State private var selectedLogged: LoggedMeal?
 
     private var dateString: String {
         let f = DateFormatter()
@@ -36,6 +37,9 @@ struct HomeView: View {
         .background(Color(UIColor.systemBackground))
         .sheet(isPresented: $showAchievements) {
             AchievementsView()
+        }
+        .sheet(item: $selectedLogged) { lm in
+            MealDetailView(meal: lm)
         }
         .refreshable {
             if appState.healthKitAuthorized { await appState.refreshHealth() }
@@ -109,8 +113,7 @@ struct HomeView: View {
         VStack(spacing: 14) {
             CalorieRingView(
                 consumed: appState.todayConsumedKcal,
-                goal: appState.goal,
-                quality: appState.avgQualityToday
+                goal: appState.goal
             )
             Button(action: { showGoalSheet = true }) {
                 Label(
@@ -190,7 +193,15 @@ struct HomeView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(appState.todayMeals.enumerated()), id: \.offset) { i, meal in
-                        MealRowView(meal: meal)
+                        Button {
+                            if let lm = appState.loggedMeals.first(where: { $0.id.hashValue == meal.id }) {
+                                selectedLogged = lm
+                            }
+                        } label: {
+                            MealRowView(meal: meal)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                         if i < appState.todayMeals.count - 1 {
                             Divider().padding(.leading, 60)
                         }
@@ -227,7 +238,6 @@ struct HomeView: View {
 struct CalorieRingView: View {
     let consumed: Int
     let goal: Int
-    let quality: Int
 
     private let size: CGFloat = 220
     private let strokeW: CGFloat = 14
@@ -287,30 +297,7 @@ struct CalorieRingView: View {
                     .tracking(0.4)
             }
             .padding(.top, 6)
-
-            qualityPill.padding(.top, 8)
         }
-    }
-
-    var qualityPill: some View {
-        let qc = qualityColor(quality)
-        return HStack(spacing: 5) {
-            ZStack {
-                Circle().fill(qc).frame(width: 18, height: 18)
-                Text("\(quality)")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(-0.2)
-                    .foregroundColor(.white)
-            }
-            Text("calories quality")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(qc)
-                .tracking(0.2)
-        }
-        .padding(.vertical, 3)
-        .padding(.leading, 4)
-        .padding(.trailing, 9)
-        .background(Capsule().fill(qc.opacity(0.12)))
     }
 }
 
@@ -514,7 +501,7 @@ struct FoodQualityCardView: View {
                 QualityRingView(value: avg, size: 68, strokeW: 7)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Avg food quality")
+                    Text("Nutrition Score")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
 
@@ -556,16 +543,30 @@ struct FoodQualityCardView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Divider().frame(height: 32)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("NEEDS WORK")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .tracking(0.6)
-                        Text("\(w.emoji) \(w.name)")
-                            .font(.system(size: 12, weight: .medium))
-                            .lineLimit(1)
+                    if w.quality >= 80 {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("ALL CLEAN")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                                .tracking(0.6)
+                            Text("✨ Every meal scored high")
+                                .font(.system(size: 12, weight: .medium))
+                                .lineLimit(1)
+                                .foregroundColor(Color(hex: "3DB46D"))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("NEEDS WORK")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                                .tracking(0.6)
+                            Text("\(w.emoji) \(w.name)")
+                                .font(.system(size: 12, weight: .medium))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
