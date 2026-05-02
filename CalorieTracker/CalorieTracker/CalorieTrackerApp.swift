@@ -19,7 +19,7 @@ final class AppState: ObservableObject {
     // MARK: Persistent settings
 
     @AppStorage("calorieGoal")  var goal: Int = 2200
-    @AppStorage("userName")     var userName: String = "Friend"
+    @AppStorage("userName")     var userName: String = ""
     @AppStorage("isDark")       var isDark: Bool = false
     @AppStorage("claudeApiKey") var claudeApiKey: String = ""
 
@@ -31,6 +31,7 @@ final class AppState: ObservableObject {
     @AppStorage("activeDays")           var activeDays: Int = 0
     @AppStorage("healthKitEnabled")     var healthKitEnabled: Bool = false
     @AppStorage("notificationsEnabled") var notificationsEnabled: Bool = false
+    @AppStorage("hasSeenNamePrompt")    var hasSeenNamePrompt: Bool = false
 
     // MARK: Live state
 
@@ -157,5 +158,114 @@ final class AppState: ObservableObject {
             day = prev
         }
         return count
+    }
+
+    // MARK: Diary / Trends
+
+    private var mealsByDay: [Date: [LoggedMeal]] {
+        Dictionary(grouping: loggedMeals) { Calendar.current.startOfDay(for: $0.timestamp) }
+    }
+
+    /// Most recent N days that contain at least one logged meal, plus
+    /// today (always included even when empty).
+    func recentDays(limit: Int = 14) -> [DayRecord] {
+        let cal = Calendar.current
+        let grouped = mealsByDay
+        let today = cal.startOfDay(for: Date())
+
+        let dayDate = DateFormatter()
+        dayDate.dateFormat = "MMM d"
+        let weekday = DateFormatter()
+        weekday.dateFormat = "EEE"
+
+        var records: [DayRecord] = []
+        for offset in 0..<60 {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { break }
+            let mealsOnDay = (grouped[day] ?? []).sorted { $0.timestamp < $1.timestamp }
+            if mealsOnDay.isEmpty && offset != 0 { continue }
+
+            let label: String
+            switch offset {
+            case 0: label = "Today"
+            case 1: label = "Yesterday"
+            default: label = weekday.string(from: day)
+            }
+
+            let consumed = mealsOnDay.map(\.kcal).reduce(0, +)
+            records.append(DayRecord(
+                label: label,
+                date: dayDate.string(from: day),
+                consumed: consumed,
+                storedGoal: nil,
+                mealCount: mealsOnDay.count,
+                meals: mealsOnDay.map(\.asMeal)
+            ))
+            if records.count >= limit { break }
+        }
+        return records
+    }
+
+    func weekTrendEntries() -> [TrendEntry] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let grouped = mealsByDay
+        let wf = DateFormatter(); wf.dateFormat = "EEE"
+        return (0..<7).reversed().compactMap { offset in
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            let meals = grouped[day] ?? []
+            return TrendEntry(
+                label: wf.string(from: day),
+                consumed: meals.map(\.kcal).reduce(0, +),
+                quality: meals.isEmpty ? 0 : meals.map(\.quality).reduce(0, +) / meals.count
+            )
+        }
+    }
+
+    func monthTrendEntries() -> [TrendEntry] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let grouped = mealsByDay
+        return (0..<30).reversed().compactMap { offset in
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            let meals = grouped[day] ?? []
+            return TrendEntry(
+                label: "\(cal.component(.day, from: day))",
+                consumed: meals.map(\.kcal).reduce(0, +),
+                quality: meals.isEmpty ? 0 : meals.map(\.quality).reduce(0, +) / meals.count
+            )
+        }
+    }
+
+    func yearTrendEntries() -> [TrendEntry] {
+        let cal = Calendar.current
+        let mf = DateFormatter(); mf.dateFormat = "MMM"
+        let today = Date()
+        let grouped: [DateComponents: [LoggedMeal]] = Dictionary(grouping: loggedMeals) {
+            cal.dateComponents([.year, .month], from: $0.timestamp)
+        }
+        return (0..<12).reversed().compactMap { offset in
+            guard let date = cal.date(byAdding: .month, value: -offset, to: today) else { return nil }
+            let key = cal.dateComponents([.year, .month], from: date)
+            let meals = grouped[key] ?? []
+            let daysInMonth = cal.range(of: .day, in: .month, for: date)?.count ?? 30
+            let totalKcal = meals.map(\.kcal).reduce(0, +)
+            return TrendEntry(
+                label: mf.string(from: date),
+                consumed: totalKcal / max(1, daysInMonth),
+                quality: meals.isEmpty ? 0 : meals.map(\.quality).reduce(0, +) / meals.count
+            )
+        }
+    }
+
+    /// (protein%, carbs%, fat%) of total kcal across logged meals; sums to 100 when any data exists.
+    func macroPercents() -> (Int, Int, Int) {
+        let p = loggedMeals.map { $0.protein * 4 }.reduce(0, +)
+        let c = loggedMeals.map { $0.carbs   * 4 }.reduce(0, +)
+        let f = loggedMeals.map { $0.fat     * 9 }.reduce(0, +)
+        let total = p + c + f
+        guard total > 0 else { return (0, 0, 0) }
+        let pp = Int((Double(p) / Double(total) * 100).rounded())
+        let cc = Int((Double(c) / Double(total) * 100).rounded())
+        return (pp, cc, max(0, 100 - pp - cc))
     }
 }

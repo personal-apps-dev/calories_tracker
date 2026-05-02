@@ -1,5 +1,10 @@
 import SwiftUI
 
+func initials(for name: String) -> String {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? "?" : String(trimmed.prefix(1)).uppercased()
+}
+
 // MARK: - HomeView
 
 struct HomeView: View {
@@ -45,7 +50,7 @@ struct HomeView: View {
                 Text(dateString)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.secondary)
-                Text("Hey, \(appState.userName) 👋")
+                Text("Hey, \(appState.userName.isEmpty ? "there" : appState.userName) 👋")
                     .font(.system(size: 28, weight: .bold))
                     .tracking(-0.8)
             }
@@ -58,7 +63,7 @@ struct HomeView: View {
                     ))
                     .frame(width: 40, height: 40)
                     .overlay(
-                        Text(String(appState.userName.prefix(1)).uppercased())
+                        Text(initials(for: appState.userName))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                     )
