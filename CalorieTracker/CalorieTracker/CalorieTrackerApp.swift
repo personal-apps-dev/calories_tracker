@@ -32,6 +32,9 @@ final class AppState: ObservableObject {
     @AppStorage("healthKitEnabled")     var healthKitEnabled: Bool = false
     @AppStorage("notificationsEnabled") var notificationsEnabled: Bool = false
     @AppStorage("hasSeenNamePrompt")    var hasSeenNamePrompt: Bool = false
+    @AppStorage("targetWeightKg")       var targetWeightKg: Double = 0
+    @AppStorage("heightCm")             var heightCm: Int = 0
+    @AppStorage("weightFromHealth")     var weightFromHealth: Bool = false
     @AppStorage("appLanguage")          private(set) var appLanguageRaw: String = AppLanguage.system.rawValue
 
     var appLanguage: AppLanguage {
@@ -54,6 +57,7 @@ final class AppState: ObservableObject {
     @Published var caloriesBurnedToday: Int = 0
     @Published var activitiesToday: [Activity] = []
     @Published var healthKitAuthorized: Bool = false
+    @Published var weights: [WeightEntry] = []
 
     let healthKit = HealthKitService()
 
@@ -64,6 +68,42 @@ final class AppState: ObservableObject {
             memberSinceTimestamp = Date().timeIntervalSince1970
         }
         loggedMeals = LoggedMeal.loadAll()
+        weights = WeightEntry.loadAll()
+    }
+
+    // MARK: Effective daily goal
+
+    /// Daily calorie goal adjusted for activity burn — i.e. the amount the
+    /// user can actually eat today and still hit their target.
+    var effectiveGoalToday: Int { goal + caloriesBurnedToday }
+
+    // MARK: Weight tracking
+
+    var latestWeightKg: Double? {
+        weights.sorted { $0.date < $1.date }.last?.kg
+    }
+
+    func addWeight(_ kg: Double, on date: Date = Date()) {
+        let entry = WeightEntry(date: date, kg: kg)
+        weights.append(entry)
+        weights.sort { $0.date < $1.date }
+        WeightEntry.saveAll(weights)
+    }
+
+    func removeWeight(_ entry: WeightEntry) {
+        weights.removeAll { $0.id == entry.id }
+        WeightEntry.saveAll(weights)
+    }
+
+    func syncWeightsFromHealth() async {
+        guard healthKitAuthorized else { return }
+        let pulled = await healthKit.bodyMassHistory(days: 365)
+        let manual = weights.filter { entry in
+            !pulled.contains(where: { abs($0.date.timeIntervalSince(entry.date)) < 60 })
+        }
+        let merged = (manual + pulled).sorted { $0.date < $1.date }
+        weights = merged
+        WeightEntry.saveAll(merged)
     }
 
     func bootstrap() async {
@@ -91,6 +131,10 @@ final class AppState: ObservableObject {
         caloriesBurnedToday = b
         activitiesToday = w
         if b >= 500 { activeDays = max(activeDays, 1) }
+
+        if weightFromHealth {
+            await syncWeightsFromHealth()
+        }
     }
 
     // MARK: Meal logging

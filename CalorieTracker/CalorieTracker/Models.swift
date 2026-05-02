@@ -99,6 +99,36 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - WeightEntry (persisted)
+
+struct WeightEntry: Codable, Identifiable, Hashable {
+    let id: UUID
+    let date: Date
+    let kg: Double
+
+    init(id: UUID = UUID(), date: Date = Date(), kg: Double) {
+        self.id = id
+        self.date = date
+        self.kg = kg
+    }
+
+    private static let storeKey = "weightEntries.v1"
+
+    static func loadAll() -> [WeightEntry] {
+        guard let data = UserDefaults.standard.data(forKey: storeKey),
+              let arr = try? JSONDecoder().decode([WeightEntry].self, from: data) else {
+            return []
+        }
+        return arr.sorted { $0.date < $1.date }
+    }
+
+    static func saveAll(_ entries: [WeightEntry]) {
+        if let data = try? JSONEncoder().encode(entries) {
+            UserDefaults.standard.set(data, forKey: storeKey)
+        }
+    }
+}
+
 // MARK: - LoggedMeal (persisted)
 
 struct LoggedMeal: Codable, Identifiable {

@@ -12,6 +12,9 @@ final class HealthKitService: ObservableObject {
         if let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) {
             types.insert(energy)
         }
+        if let mass = HKObjectType.quantityType(forIdentifier: .bodyMass) {
+            types.insert(mass)
+        }
         return types
     }
 
@@ -41,6 +44,36 @@ final class HealthKitService: ObservableObject {
             ) { _, stats, _ in
                 let kcal = stats?.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
                 cont.resume(returning: Int(kcal.rounded()))
+            }
+            self.store.execute(q)
+        }
+    }
+
+    func bodyMassHistory(days: Int = 365) async -> [WeightEntry] {
+        guard isAvailable,
+              let type = HKObjectType.quantityType(forIdentifier: .bodyMass) else {
+            return []
+        }
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: [])
+        let sort = NSSortDescriptor(keyPath: \HKSample.startDate, ascending: true)
+
+        return await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: type,
+                predicate: pred,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let kgUnit = HKUnit.gramUnit(with: .kilo)
+                let entries: [WeightEntry] = (samples as? [HKQuantitySample] ?? []).map {
+                    WeightEntry(
+                        date: $0.startDate,
+                        kg: $0.quantity.doubleValue(for: kgUnit)
+                    )
+                }
+                cont.resume(returning: entries)
             }
             self.store.execute(q)
         }

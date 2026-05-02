@@ -62,6 +62,7 @@ struct DiaryView: View {
             }
         }
         .background(Color(UIColor.systemBackground))
+        .scrollEdgeFade()
         .sheet(item: $selectedLogged) { lm in
             MealDetailView(meal: lm)
         }
@@ -260,10 +261,14 @@ struct TrendsView: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
                 }
+                WeightSectionView()
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
             }
             .padding(.bottom, 110)
         }
         .background(Color(UIColor.systemBackground))
+        .scrollEdgeFade()
     }
 
     var emptyCard: some View {
@@ -591,6 +596,8 @@ struct ProfileView: View {
     @State private var healthRequesting = false
     @State private var showLanguagePicker = false
     @State private var showRestartHint = false
+    @State private var showHeightEditor = false
+    @State private var heightDraft = ""
 
     private var healthValue: String {
         if !appState.healthKit.isAvailable { return "Unavailable" }
@@ -616,6 +623,11 @@ struct ProfileView: View {
                     }
                     ProfileRow(icon: "🥩", label: "Protein target",
                                value: "\(appState.todayProteinStat.goal)g") {}
+                    ProfileRow(icon: "📏", label: "Height",
+                               value: appState.heightCm > 0 ? "\(appState.heightCm) cm" : "Not set") {
+                        heightDraft = appState.heightCm > 0 ? "\(appState.heightCm)" : ""
+                        showHeightEditor = true
+                    }
                     ProfileRow(icon: "🏆", label: "Achievements",
                                value: "\(buildAchievements(appState).filter(\.isUnlocked).count) unlocked",
                                isLast: true) {
@@ -706,6 +718,7 @@ struct ProfileView: View {
             }
         }
         .background(Color(UIColor.systemBackground))
+        .scrollEdgeFade()
         .sheet(isPresented: $showAchievements) { AchievementsView() }
         .sheet(isPresented: $showLanguagePicker) {
             LanguagePickerSheet(selected: appState.appLanguage) { lang in
@@ -721,6 +734,19 @@ struct ProfileView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("AI responses already use the new language. Force-quit the app and reopen it to switch the interface.")
+        }
+        .alert("Height", isPresented: $showHeightEditor) {
+            TextField("Height in cm", text: $heightDraft)
+                .keyboardType(.numberPad)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                if let cm = Int(heightDraft.trimmingCharacters(in: .whitespaces)),
+                   cm > 50, cm < 260 {
+                    appState.heightCm = cm
+                }
+            }
+        } message: {
+            Text("Used for body-composition stats. We'll never share it.")
         }
         .alert("Display name", isPresented: $showNameEditor) {
             TextField("Your name", text: $nameDraft)
@@ -1085,3 +1111,250 @@ struct StepBtn: View {
         .foregroundColor(.primary)
     }
 }
+
+// MARK: - WeightSectionView
+
+struct WeightSectionView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var showAddWeight = false
+    @State private var showTargetEditor = false
+    @State private var weightDraft = ""
+    @State private var targetDraft = ""
+    @State private var syncing = false
+
+    private var current: Double? { appState.latestWeightKg }
+    private var target: Double? { appState.targetWeightKg > 0 ? appState.targetWeightKg : nil }
+    private var diff: Double? {
+        guard let c = current, let t = target else { return nil }
+        return c - t
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Weight")
+                    .font(.system(size: 18, weight: .bold))
+                    .tracking(-0.4)
+                Spacer()
+                Button {
+                    weightDraft = current.map { String(format: "%.1f", $0) } ?? ""
+                    showAddWeight = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(accentOrange)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("CURRENT")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .tracking(0.5)
+                    HStack(alignment: .lastTextBaseline, spacing: 3) {
+                        Text(current.map { String(format: "%.1f", $0) } ?? "—")
+                            .font(.system(size: 28, weight: .bold))
+                            .tracking(-0.8)
+                            .monospacedDigit()
+                        Text("kg")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Divider().frame(height: 40)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("TARGET")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .tracking(0.5)
+                        Button {
+                            targetDraft = target.map { String(format: "%.1f", $0) } ?? ""
+                            showTargetEditor = true
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    HStack(alignment: .lastTextBaseline, spacing: 3) {
+                        Text(target.map { String(format: "%.1f", $0) } ?? "—")
+                            .font(.system(size: 28, weight: .bold))
+                            .tracking(-0.8)
+                            .monospacedDigit()
+                        Text("kg")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let d = diff {
+                    Divider().frame(height: 40)
+                    let losing = d > 0
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(losing ? "TO LOSE" : "TO GAIN")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .tracking(0.5)
+                        HStack(alignment: .lastTextBaseline, spacing: 3) {
+                            Text(String(format: "%.1f", abs(d)))
+                                .font(.system(size: 28, weight: .bold))
+                                .tracking(-0.8)
+                                .monospacedDigit()
+                                .foregroundColor(losing ? Color(hex: "E86A6A") : Color(hex: "3DB46D"))
+                            Text("kg")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            if appState.weights.count >= 2 {
+                WeightSparkline(entries: appState.weights, target: target)
+                    .frame(height: 80)
+            }
+
+            HStack(spacing: 8) {
+                Toggle(isOn: $appState.weightFromHealth) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: "FF375F"))
+                        Text("Auto-sync from Apple Health")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                }
+                .toggleStyle(SwitchToggleStyle(tint: accentOrange))
+                .disabled(!appState.healthKitAuthorized)
+            }
+
+            if appState.weightFromHealth && appState.healthKitAuthorized {
+                Button {
+                    Task {
+                        syncing = true
+                        await appState.syncWeightsFromHealth()
+                        syncing = false
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if syncing {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        Text(syncing ? "Syncing…" : "Sync now")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.primary)
+                    .padding(.vertical, 7).padding(.horizontal, 12)
+                    .background(
+                        Capsule().fill(Color(UIColor.tertiarySystemBackground))
+                            .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                    )
+                }
+                .disabled(syncing)
+            } else if !appState.healthKitAuthorized {
+                Text("Connect Apple Health in Profile to sync weight automatically.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+        .alert("Log weight", isPresented: $showAddWeight) {
+            TextField("Weight in kg", text: $weightDraft)
+                .keyboardType(.decimalPad)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let s = weightDraft.replacingOccurrences(of: ",", with: ".")
+                if let kg = Double(s.trimmingCharacters(in: .whitespaces)),
+                   kg > 20, kg < 400 {
+                    appState.addWeight(kg)
+                }
+            }
+        } message: {
+            Text("Today's weight, in kilograms.")
+        }
+        .alert("Target weight", isPresented: $showTargetEditor) {
+            TextField("Target in kg", text: $targetDraft)
+                .keyboardType(.decimalPad)
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) { appState.targetWeightKg = 0 }
+            Button("Save") {
+                let s = targetDraft.replacingOccurrences(of: ",", with: ".")
+                if let kg = Double(s.trimmingCharacters(in: .whitespaces)),
+                   kg > 20, kg < 400 {
+                    appState.targetWeightKg = kg
+                }
+            }
+        } message: {
+            Text("Where you want to land.")
+        }
+        .onChange(of: appState.weightFromHealth) { newValue in
+            if newValue && appState.healthKitAuthorized {
+                Task { await appState.syncWeightsFromHealth() }
+            }
+        }
+    }
+}
+
+struct WeightSparkline: View {
+    let entries: [WeightEntry]
+    let target: Double?
+
+    private var minVal: Double {
+        let m = entries.map(\.kg).min() ?? 0
+        return min(m, target ?? m) - 0.5
+    }
+    private var maxVal: Double {
+        let m = entries.map(\.kg).max() ?? 1
+        return max(m, target ?? m) + 0.5
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let count = entries.count
+            let stepX = count > 1 ? geo.size.width / CGFloat(count - 1) : 0
+            let range = max(0.001, maxVal - minVal)
+            ZStack {
+                if let t = target {
+                    let y = geo.size.height * (1 - CGFloat((t - minVal) / range))
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: y))
+                        p.addLine(to: CGPoint(x: geo.size.width, y: y))
+                    }
+                    .stroke(Color.secondary.opacity(0.35),
+                            style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+                Path { p in
+                    for (i, e) in entries.enumerated() {
+                        let x = CGFloat(i) * stepX
+                        let y = geo.size.height * (1 - CGFloat((e.kg - minVal) / range))
+                        if i == 0 { p.move(to: CGPoint(x: x, y: y)) }
+                        else { p.addLine(to: CGPoint(x: x, y: y)) }
+                    }
+                }
+                .stroke(accentOrange, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+                if let last = entries.last, count > 0 {
+                    let x = CGFloat(count - 1) * stepX
+                    let y = geo.size.height * (1 - CGFloat((last.kg - minVal) / range))
+                    Circle()
+                        .fill(accentOrange)
+                        .frame(width: 7, height: 7)
+                        .position(x: x, y: y)
+                }
+            }
+        }
+    }
+}
+

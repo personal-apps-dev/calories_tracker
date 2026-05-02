@@ -35,6 +35,7 @@ struct HomeView: View {
             .padding(.bottom, 110)
         }
         .background(Color(UIColor.systemBackground))
+        .scrollEdgeFade()
         .sheet(isPresented: $showAchievements) {
             AchievementsView()
         }
@@ -116,25 +117,39 @@ struct HomeView: View {
     // MARK: Ring + goal button
 
     var ringSection: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             CalorieRingView(
                 consumed: appState.todayConsumedKcal,
-                goal: appState.goal
+                goal: appState.effectiveGoalToday
             )
-            Button(action: { showGoalSheet = true }) {
-                Label(
-                    "Goal · \(appState.goal.formatted(.number)) kcal",
-                    systemImage: "pencil"
-                )
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.primary)
-                .padding(.vertical, 7)
-                .padding(.horizontal, 14)
-                .background(
-                    Capsule()
-                        .fill(Color(UIColor.secondarySystemBackground))
-                        .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-                )
+            HStack(spacing: 8) {
+                Button(action: { showGoalSheet = true }) {
+                    Label(
+                        "Goal · \(appState.goal.formatted(.number)) kcal",
+                        systemImage: "pencil"
+                    )
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 14)
+                    .background(
+                        Capsule()
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                    )
+                }
+                if appState.caloriesBurnedToday > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("+\(appState.caloriesBurnedToday) burned")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(accentOrange)
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 12)
+                    .background(Capsule().fill(accentOrange.opacity(0.13)))
+                }
             }
         }
         .frame(maxWidth: .infinity)
