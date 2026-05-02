@@ -255,19 +255,21 @@ struct TrendsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 rangePicker
-                if hasData {
+                metricToggle
+
+                if metric == .weight {
+                    WeightSectionView(range: range, selectedIndex: $selectedBar)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 4)
+                } else if hasData {
                     statCards
                     qualityAndMacro
-                    metricToggle
                     barChart
                 } else {
                     emptyCard
                         .padding(.horizontal, 24)
                         .padding(.top, 8)
                 }
-                WeightSectionView()
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
             }
             .padding(.bottom, 110)
         }
@@ -1239,6 +1241,9 @@ struct StepBtn: View {
 // MARK: - WeightSectionView
 
 struct WeightSectionView: View {
+    var range: TrendsView.RangeType = .month
+    var selectedIndex: Binding<Int?> = .constant(nil)
+
     @EnvironmentObject var appState: AppState
     @State private var showAddWeight = false
     @State private var showTargetEditor = false
@@ -1252,6 +1257,7 @@ struct WeightSectionView: View {
         guard let c = current, let t = target else { return nil }
         return c - t
     }
+    private var rangeEntries: [WeightEntry] { appState.weightsForRange(range) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1290,31 +1296,40 @@ struct WeightSectionView: View {
 
                 Divider().frame(height: 40)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("TARGET")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .tracking(0.5)
-                        Button {
-                            targetDraft = target.map { String(format: "%.1f", $0) } ?? ""
-                            showTargetEditor = true
-                        } label: {
-                            Image(systemName: "pencil")
-                                .font(.system(size: 9, weight: .semibold))
+                Button {
+                    targetDraft = target.map { String(format: "%.1f", $0) } ?? ""
+                    showTargetEditor = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 5) {
+                            Text("TARGET")
+                                .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.tertiary)
+                                .tracking(0.5)
+                            Image(systemName: target == nil ? "plus.circle.fill" : "pencil")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(target == nil ? accentOrange : .secondary)
+                        }
+                        if let t = target {
+                            HStack(alignment: .lastTextBaseline, spacing: 3) {
+                                Text(String(format: "%.1f", t))
+                                    .font(.system(size: 28, weight: .bold))
+                                    .tracking(-0.8)
+                                    .monospacedDigit()
+                                    .foregroundColor(.primary)
+                                Text("kg")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("Set target")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(accentOrange)
+                                .padding(.top, 6)
                         }
                     }
-                    HStack(alignment: .lastTextBaseline, spacing: 3) {
-                        Text(target.map { String(format: "%.1f", $0) } ?? "—")
-                            .font(.system(size: 28, weight: .bold))
-                            .tracking(-0.8)
-                            .monospacedDigit()
-                        Text("kg")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
                 }
+                .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let d = diff {
@@ -1340,9 +1355,52 @@ struct WeightSectionView: View {
                 }
             }
 
-            if appState.weights.count >= 2 {
-                WeightSparkline(entries: appState.weights, target: target)
-                    .frame(height: 80)
+            if rangeEntries.isEmpty {
+                VStack(spacing: 4) {
+                    Text("No weight entries in this range")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("Tap + to log one.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 110)
+            } else {
+                VStack(spacing: 8) {
+                    if let i = selectedIndex.wrappedValue,
+                       rangeEntries.indices.contains(i) {
+                        let w = rangeEntries[i]
+                        HStack(spacing: 6) {
+                            Text(formattedDate(w.date))
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text("·").foregroundStyle(.tertiary)
+                            Text(String(format: "%.1f kg", w.kg))
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(accentOrange)
+                                .monospacedDigit()
+                            Spacer()
+                        }
+                    }
+                    WeightLineChartView(
+                        entries: rangeEntries,
+                        target: target,
+                        selectedIndex: selectedIndex
+                    )
+                    .frame(height: 140)
+
+                    if let first = rangeEntries.first,
+                       let last = rangeEntries.last,
+                       rangeEntries.count > 1 {
+                        HStack {
+                            Text(formattedDate(first.date))
+                            Spacer()
+                            Text(formattedDate(last.date))
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             HStack(spacing: 8) {
@@ -1429,59 +1487,13 @@ struct WeightSectionView: View {
             }
         }
     }
-}
 
-struct WeightSparkline: View {
-    let entries: [WeightEntry]
-    let target: Double?
-
-    private var minVal: Double {
-        let m = entries.map(\.kg).min() ?? 0
-        return min(m, target ?? m) - 0.5
-    }
-    private var maxVal: Double {
-        let m = entries.map(\.kg).max() ?? 1
-        return max(m, target ?? m) + 0.5
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            let count = entries.count
-            let stepX = count > 1 ? geo.size.width / CGFloat(count - 1) : 0
-            let range = max(0.001, maxVal - minVal)
-            ZStack {
-                if let t = target {
-                    let y = geo.size.height * (1 - CGFloat((t - minVal) / range))
-                    Path { p in
-                        p.move(to: CGPoint(x: 0, y: y))
-                        p.addLine(to: CGPoint(x: geo.size.width, y: y))
-                    }
-                    .stroke(Color.secondary.opacity(0.35),
-                            style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                }
-                Path { p in
-                    for (i, e) in entries.enumerated() {
-                        let x = CGFloat(i) * stepX
-                        let y = geo.size.height * (1 - CGFloat((e.kg - minVal) / range))
-                        if i == 0 { p.move(to: CGPoint(x: x, y: y)) }
-                        else { p.addLine(to: CGPoint(x: x, y: y)) }
-                    }
-                }
-                .stroke(accentOrange, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-
-                if let last = entries.last, count > 0 {
-                    let x = CGFloat(count - 1) * stepX
-                    let y = geo.size.height * (1 - CGFloat((last.kg - minVal) / range))
-                    Circle()
-                        .fill(accentOrange)
-                        .frame(width: 7, height: 7)
-                        .position(x: x, y: y)
-                }
-            }
-        }
+    private func formattedDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = range == .year ? "MMM yyyy" : "MMM d"
+        return f.string(from: d)
     }
 }
-
 
 // MARK: - WeightLineChartView (Trends chart, tappable)
 
