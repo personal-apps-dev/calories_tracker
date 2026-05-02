@@ -106,6 +106,20 @@ final class AppState: ObservableObject {
         WeightEntry.saveAll(merged)
     }
 
+    /// Weights inside the trailing window for the given trends range.
+    func weightsForRange(_ range: TrendsView.RangeType) -> [WeightEntry] {
+        let cal = Calendar.current
+        let days: Int = {
+            switch range {
+            case .week:  return 7
+            case .month: return 30
+            case .year:  return 365
+            }
+        }()
+        guard let cutoff = cal.date(byAdding: .day, value: -days, to: Date()) else { return weights }
+        return weights.filter { $0.date >= cutoff }
+    }
+
     func bootstrap() async {
         guard healthKit.isAvailable else { return }
         if healthKitEnabled {

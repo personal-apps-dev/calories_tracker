@@ -201,7 +201,11 @@ struct TrendsView: View {
     @State private var selectedBar: Int? = nil
 
     enum RangeType: String, CaseIterable { case week = "Week", month = "Month", year = "Year" }
-    enum MetricType: String, CaseIterable { case calories = "Calories", quality = "Quality" }
+    enum MetricType: String, CaseIterable {
+        case calories  = "Calories"
+        case nutrition = "Nutrition Score"
+        case weight    = "Weight"
+    }
 
     private var entries: [TrendEntry] {
         switch range {
@@ -214,7 +218,7 @@ struct TrendsView: View {
     private var nonEmptyEntries: [TrendEntry] {
         entries.filter { $0.consumed > 0 }
     }
-    private var hasData: Bool { !nonEmptyEntries.isEmpty }
+    private var hasData: Bool { !nonEmptyEntries.isEmpty || !appState.weights.isEmpty }
 
     private var rangeTitle: String {
         let f = DateFormatter()
@@ -423,55 +427,153 @@ struct TrendsView: View {
         .padding(.bottom, 12)
     }
 
+    private var weightEntries: [WeightEntry] { appState.weightsForRange(range) }
+    private var hasWeightData: Bool { weightEntries.count >= 1 }
+
     var barChart: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .lastTextBaseline) {
-                if let i = selectedBar, entries.indices.contains(i) {
+            chartHeader
+                .padding(.bottom, 14)
+
+            Group {
+                if metric == .weight {
+                    if hasWeightData {
+                        WeightLineChartView(
+                            entries: weightEntries,
+                            target: appState.targetWeightKg > 0 ? appState.targetWeightKg : nil,
+                            selectedIndex: $selectedBar
+                        )
+                    } else {
+                        weightEmptyInline
+                    }
+                } else {
+                    BarChartView(
+                        entries: entries,
+                        metric: metric,
+                        goal: appState.goal,
+                        range: range,
+                        selectedIndex: $selectedBar
+                    )
+                }
+            }
+            .frame(height: 140)
+            .padding(.bottom, 8)
+
+            chartLabels
+        }
+        .padding(18)
+        .cardStyle()
+        .padding(.horizontal, 24)
+        .padding(.bottom, 22)
+    }
+
+    @ViewBuilder
+    var chartHeader: some View {
+        HStack(alignment: .lastTextBaseline) {
+            chartHeaderTitle
+            Spacer()
+            chartHeaderRefLine
+        }
+    }
+
+    @ViewBuilder
+    private var chartHeaderTitle: some View {
+        if let i = selectedBar {
+            switch metric {
+            case .calories:
+                if entries.indices.contains(i) {
                     let e = entries[i]
                     HStack(spacing: 6) {
                         Text(e.label)
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.secondary)
-                        Text("·")
-                            .foregroundStyle(.tertiary)
-                        Text(metric == .calories
-                             ? "\(e.consumed.formatted(.number)) kcal"
-                             : "\(e.quality) / 100")
+                        Text("·").foregroundStyle(.tertiary)
+                        Text("\(e.consumed.formatted(.number)) kcal")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(metric == .calories
-                                             ? (e.consumed > appState.goal
-                                                ? Color(hex: "E86A6A") : accentOrange)
-                                             : qualityColor(e.quality))
+                            .foregroundColor(e.consumed > appState.goal
+                                             ? Color(hex: "E86A6A") : accentOrange)
                             .monospacedDigit()
                     }
-                } else {
-                    Text(metric == .calories ? "Daily calories" : "Daily quality score")
-                        .font(.system(size: 14, weight: .semibold))
                 }
-                Spacer()
-                HStack(spacing: 4) {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.4))
-                        .frame(width: 10, height: 1.5)
-                    Text(metric == .calories
-                         ? "Goal \(appState.goal.formatted(.number))"
-                         : "Target 75")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+            case .nutrition:
+                if entries.indices.contains(i) {
+                    let e = entries[i]
+                    HStack(spacing: 6) {
+                        Text(e.label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text("·").foregroundStyle(.tertiary)
+                        Text("\(e.quality) / 100")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(qualityColor(e.quality))
+                            .monospacedDigit()
+                    }
+                }
+            case .weight:
+                if weightEntries.indices.contains(i) {
+                    let w = weightEntries[i]
+                    HStack(spacing: 6) {
+                        Text(weightLabelDate(w.date))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(String(format: "%.1f kg", w.kg))
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(accentOrange)
+                            .monospacedDigit()
+                    }
                 }
             }
-            .padding(.bottom, 14)
+        } else {
+            switch metric {
+            case .calories:  Text("Daily calories").font(.system(size: 14, weight: .semibold))
+            case .nutrition: Text("Daily Nutrition Score").font(.system(size: 14, weight: .semibold))
+            case .weight:    Text("Weight").font(.system(size: 14, weight: .semibold))
+            }
+        }
+    }
 
-            BarChartView(
-                entries: entries,
-                metric: metric,
-                goal: appState.goal,
-                range: range,
-                selectedIndex: $selectedBar
-            )
-            .frame(height: 140)
-            .padding(.bottom, 8)
+    @ViewBuilder
+    private var chartHeaderRefLine: some View {
+        switch metric {
+        case .calories:
+            HStack(spacing: 4) {
+                Rectangle().fill(Color.secondary.opacity(0.4)).frame(width: 10, height: 1.5)
+                Text("Goal \(appState.goal.formatted(.number))")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        case .nutrition:
+            HStack(spacing: 4) {
+                Rectangle().fill(Color.secondary.opacity(0.4)).frame(width: 10, height: 1.5)
+                Text("Target 75")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        case .weight:
+            if appState.targetWeightKg > 0 {
+                HStack(spacing: 4) {
+                    Rectangle().fill(Color.secondary.opacity(0.4)).frame(width: 10, height: 1.5)
+                    Text(String(format: "Target %.1f kg", appState.targetWeightKg))
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            } else {
+                EmptyView()
+            }
+        }
+    }
 
+    @ViewBuilder
+    private var chartLabels: some View {
+        if metric == .weight {
+            if hasWeightData {
+                HStack {
+                    Text(weightLabelDate(weightEntries.first?.date ?? Date()))
+                    Spacer()
+                    Text(weightLabelDate(weightEntries.last?.date ?? Date()))
+                }
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+            }
+        } else {
             let barGap: CGFloat = range == .month ? 2 : 8
             HStack(spacing: barGap) {
                 ForEach(Array(entries.enumerated()), id: \.offset) { i, e in
@@ -483,10 +585,24 @@ struct TrendsView: View {
                 }
             }
         }
-        .padding(18)
-        .cardStyle()
-        .padding(.horizontal, 24)
-        .padding(.bottom, 22)
+    }
+
+    var weightEmptyInline: some View {
+        VStack(spacing: 4) {
+            Text("No weight entries yet")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("Add one below to start tracking.")
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func weightLabelDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = range == .year ? "MMM d" : "MMM d"
+        return f.string(from: d)
     }
 
     private func showLabel(_ i: Int, total: Int, range: RangeType) -> Bool {
@@ -524,7 +640,7 @@ struct BarChartView: View {
 
                 HStack(alignment: .bottom, spacing: barGap) {
                     ForEach(Array(entries.enumerated()), id: \.offset) { i, e in
-                        let val = metric == .calories ? Double(e.consumed) : Double(e.quality)
+                        let val = (metric == .calories) ? Double(e.consumed) : Double(e.quality)
                         let fraction = val / maxVal
                         let isOver = metric == .calories && e.consumed > goal
                         let baseColor: Color = metric == .calories
@@ -1004,6 +1120,9 @@ struct GoalSheetView: View {
 
             VStack(spacing: 6) {
                 GeometryReader { geo in
+                    let thumbSize: CGFloat = 24
+                    let thumbX = Swift.max(0, Swift.min(geo.size.width - thumbSize,
+                                                        geo.size.width * pct - thumbSize / 2))
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(Color.primary.opacity(0.06))
@@ -1017,18 +1136,23 @@ struct GoalSheetView: View {
                         Circle()
                             .fill(.white)
                             .overlay(Circle().stroke(accentOrange, lineWidth: 2))
-                            .frame(width: 20, height: 20)
+                            .frame(width: thumbSize, height: thumbSize)
                             .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
-                            .offset(x: Swift.max(0, geo.size.width * pct - 10))
+                            .offset(x: thumbX)
                             .animation(.interactiveSpring(), value: pct)
-                        Slider(value: Binding(
-                            get: { Double(draft) },
-                            set: { draft = Int($0 / 50) * 50 }
-                        ), in: Double(min)...Double(max), step: 50)
-                        .opacity(0.015)
                     }
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let x = Swift.max(0, Swift.min(geo.size.width, value.location.x))
+                                let p = geo.size.width > 0 ? x / geo.size.width : 0
+                                let raw = Double(min) + Double(p) * Double(max - min)
+                                draft = Swift.max(min, Swift.min(max, Int((raw / 50).rounded()) * 50))
+                            }
+                    )
                 }
-                .frame(height: 28)
+                .frame(height: 32)
 
                 HStack {
                     Text("\(min.formatted(.number))")
@@ -1358,3 +1482,83 @@ struct WeightSparkline: View {
     }
 }
 
+
+// MARK: - WeightLineChartView (Trends chart, tappable)
+
+struct WeightLineChartView: View {
+    let entries: [WeightEntry]
+    let target: Double?
+    @Binding var selectedIndex: Int?
+
+    private var minVal: Double {
+        let m = entries.map(\.kg).min() ?? 0
+        return min(m, target ?? m) - 0.5
+    }
+    private var maxVal: Double {
+        let m = entries.map(\.kg).max() ?? 1
+        return max(m, target ?? m) + 0.5
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let count = entries.count
+            let stepX = count > 1 ? geo.size.width / CGFloat(count - 1) : 0
+            let range = max(0.001, maxVal - minVal)
+
+            ZStack {
+                if let t = target {
+                    let y = geo.size.height * (1 - CGFloat((t - minVal) / range))
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: y))
+                        p.addLine(to: CGPoint(x: geo.size.width, y: y))
+                    }
+                    .stroke(Color.secondary.opacity(0.4),
+                            style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+
+                Path { p in
+                    for (i, e) in entries.enumerated() {
+                        let x = (count == 1) ? geo.size.width / 2 : CGFloat(i) * stepX
+                        let y = geo.size.height * (1 - CGFloat((e.kg - minVal) / range))
+                        if i == 0 { p.move(to: CGPoint(x: x, y: y)) }
+                        else { p.addLine(to: CGPoint(x: x, y: y)) }
+                    }
+                }
+                .stroke(accentOrange,
+                        style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+                ForEach(Array(entries.enumerated()), id: \.offset) { i, e in
+                    let x = (count == 1) ? geo.size.width / 2 : CGFloat(i) * stepX
+                    let y = geo.size.height * (1 - CGFloat((e.kg - minVal) / range))
+                    let isSelected = selectedIndex == i
+                    Circle()
+                        .fill(isSelected ? accentOrange : .white)
+                        .overlay(Circle().stroke(accentOrange, lineWidth: isSelected ? 3 : 2))
+                        .frame(width: isSelected ? 12 : 7, height: isSelected ? 12 : 7)
+                        .position(x: x, y: y)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let x = max(0, min(geo.size.width, value.location.x))
+                        let i: Int
+                        if count <= 1 {
+                            i = 0
+                        } else {
+                            i = Int((x / stepX).rounded())
+                        }
+                        let clamped = max(0, min(count - 1, i))
+                        if selectedIndex != clamped {
+                            selectedIndex = clamped
+                        }
+                    }
+            )
+            .onTapGesture {
+                selectedIndex = nil
+            }
+            .animation(.spring(duration: 0.15), value: selectedIndex)
+        }
+    }
+}
