@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import PhotosUI
 import UIKit
 
 // MARK: - Camera Flow Coordinator
@@ -119,6 +120,8 @@ struct ViewfinderView: View {
     let onCapture: () -> Void
     let onClose: () -> Void
 
+    @State private var pickerItem: PhotosPickerItem?
+
     var body: some View {
         ZStack {
             // Camera preview or mock scene
@@ -180,12 +183,24 @@ struct ViewfinderView: View {
                     }
 
                     HStack(spacing: 60) {
-                        SmallCameraButton(sfName: "photo.on.rectangle")
+                        PhotosPicker(selection: $pickerItem, matching: .images) {
+                            SmallCameraButton(sfName: "photo.on.rectangle")
+                        }
                         ShutterButton(action: onCapture)
                         SmallCameraButton(sfName: "arrow.triangle.2.circlepath.camera")
                     }
                 }
                 .padding(.bottom, 60)
+            }
+        }
+        .onChange(of: pickerItem) { newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run { camera.capturedImage = image }
+                }
+                await MainActor.run { pickerItem = nil }
             }
         }
     }

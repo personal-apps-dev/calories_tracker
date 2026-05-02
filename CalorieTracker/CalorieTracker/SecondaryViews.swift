@@ -179,6 +179,7 @@ struct TrendsView: View {
     @EnvironmentObject var appState: AppState
     @State private var range: RangeType = .week
     @State private var metric: MetricType = .calories
+    @State private var selectedBar: Int? = nil
 
     enum RangeType: String, CaseIterable { case week = "Week", month = "Month", year = "Year" }
     enum MetricType: String, CaseIterable { case calories = "Calories", quality = "Quality" }
@@ -233,10 +234,9 @@ struct TrendsView: View {
                 rangePicker
                 if hasData {
                     statCards
-                    qualityHero
+                    qualityAndMacro
                     metricToggle
                     barChart
-                    macroDonut
                 } else {
                     emptyCard
                         .padding(.horizontal, 24)
@@ -281,7 +281,10 @@ struct TrendsView: View {
         HStack(spacing: 4) {
             ForEach(RangeType.allCases, id: \.self) { r in
                 Button(r.rawValue) {
-                    withAnimation(.spring(duration: 0.25)) { range = r }
+                    withAnimation(.spring(duration: 0.25)) {
+                        range = r
+                        selectedBar = nil
+                    }
                 }
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(range == r ? .primary : .secondary)
@@ -313,24 +316,23 @@ struct TrendsView: View {
         .padding(.bottom, 14)
     }
 
-    var qualityHero: some View {
-        HStack(spacing: 16) {
-            QualityRingView(value: avgQ, size: 64, strokeW: 7)
-
-            VStack(alignment: .leading, spacing: 2) {
+    var qualityAndMacro: some View {
+        let (pPct, cPct, fPct) = appState.macroPercents()
+        return HStack(alignment: .top, spacing: 14) {
+            // Left: Avg Food Quality pie chart + score
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Avg food quality")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
-
-                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                QualityRingView(value: avgQ, size: 76, strokeW: 8)
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text("\(avgQ)")
-                        .font(.system(size: 28, weight: .bold))
-                        .tracking(-0.8)
+                        .font(.system(size: 22, weight: .bold))
+                        .tracking(-0.6)
                     Text("/ 100")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
-
                 let qc = qualityColor(avgQ)
                 HStack(spacing: 5) {
                     Circle().fill(qc).frame(width: 5, height: 5)
@@ -340,9 +342,33 @@ struct TrendsView: View {
                 }
                 .padding(.vertical, 3).padding(.horizontal, 9)
                 .background(Capsule().fill(qc.opacity(0.13)))
-                .padding(.top, 6)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider().frame(maxHeight: 160)
+
+            // Right: Macro split
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Macro split")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                ForEach([
+                    ("Protein", pPct, Color(hex: "5B8DEF")),
+                    ("Carbs",   cPct, Color(hex: "F4B740")),
+                    ("Fat",     fPct, Color(hex: "E86A6A")),
+                ], id: \.0) { label, pct, color in
+                    HStack(spacing: 8) {
+                        Circle().fill(color).frame(width: 8, height: 8)
+                        Text(label).font(.system(size: 13))
+                        Spacer()
+                        Text("\(pct)%")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(18)
         .cardStyle()
@@ -354,7 +380,10 @@ struct TrendsView: View {
         HStack(spacing: 6) {
             ForEach(MetricType.allCases, id: \.self) { m in
                 Button(m.rawValue) {
-                    withAnimation(.spring(duration: 0.2)) { metric = m }
+                    withAnimation(.spring(duration: 0.2)) {
+                        metric = m
+                        selectedBar = nil
+                    }
                 }
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(metric == m ? Color(UIColor.systemBackground) : .secondary)
@@ -374,8 +403,28 @@ struct TrendsView: View {
     var barChart: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                Text(metric == .calories ? "Daily calories" : "Daily quality score")
-                    .font(.system(size: 14, weight: .semibold))
+                if let i = selectedBar, entries.indices.contains(i) {
+                    let e = entries[i]
+                    HStack(spacing: 6) {
+                        Text(e.label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+                        Text(metric == .calories
+                             ? "\(e.consumed.formatted(.number)) kcal"
+                             : "\(e.quality) / 100")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(metric == .calories
+                                             ? (e.consumed > appState.goal
+                                                ? Color(hex: "E86A6A") : accentOrange)
+                                             : qualityColor(e.quality))
+                            .monospacedDigit()
+                    }
+                } else {
+                    Text(metric == .calories ? "Daily calories" : "Daily quality score")
+                        .font(.system(size: 14, weight: .semibold))
+                }
                 Spacer()
                 HStack(spacing: 4) {
                     Rectangle()
@@ -394,7 +443,8 @@ struct TrendsView: View {
                 entries: entries,
                 metric: metric,
                 goal: appState.goal,
-                range: range
+                range: range,
+                selectedIndex: $selectedBar
             )
             .frame(height: 140)
             .padding(.bottom, 8)
@@ -416,42 +466,6 @@ struct TrendsView: View {
         .padding(.bottom, 22)
     }
 
-    var macroDonut: some View {
-        let (pPct, cPct, fPct) = appState.macroPercents()
-        return HStack(spacing: 18) {
-            MacroDonutView(segments: [
-                (Double(pPct) / 100, Color(hex: "5B8DEF")),
-                (Double(cPct) / 100, Color(hex: "F4B740")),
-                (Double(fPct) / 100, Color(hex: "E86A6A")),
-            ])
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Macro split")
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(.bottom, 2)
-                ForEach([
-                    ("Protein", pPct, Color(hex: "5B8DEF")),
-                    ("Carbs",   cPct, Color(hex: "F4B740")),
-                    ("Fat",     fPct, Color(hex: "E86A6A")),
-                ], id: \.0) { label, pct, color in
-                    HStack(spacing: 8) {
-                        Circle().fill(color).frame(width: 8, height: 8)
-                        Text(label).font(.system(size: 13))
-                        Spacer()
-                        Text("\(pct)%")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-            }
-            Spacer()
-        }
-        .padding(20)
-        .cardStyle()
-        .padding(.horizontal, 24)
-        .padding(.bottom, 24)
-    }
-
     private func showLabel(_ i: Int, total: Int, range: RangeType) -> Bool {
         guard range == .month else { return true }
         return i == 0 || (i + 1) % 5 == 0 || i == total - 1
@@ -463,6 +477,7 @@ struct BarChartView: View {
     let metric: TrendsView.MetricType
     let goal: Int
     let range: TrendsView.RangeType
+    @Binding var selectedIndex: Int?
 
     private var maxVal: Double {
         metric == .calories
@@ -489,18 +504,34 @@ struct BarChartView: View {
                         let val = metric == .calories ? Double(e.consumed) : Double(e.quality)
                         let fraction = val / maxVal
                         let isOver = metric == .calories && e.consumed > goal
-                        let color: Color = metric == .calories
+                        let baseColor: Color = metric == .calories
                             ? (isOver ? Color(hex: "E86A6A") : accentOrange)
                             : qualityColor(e.quality)
+                        let isSelected = selectedIndex == i
+                        let isDimmed = (selectedIndex != nil && !isSelected)
 
                         VStack(spacing: 0) {
                             Spacer(minLength: 0)
                             RoundedRectangle(cornerRadius: cornerR)
-                                .fill(color)
+                                .fill(baseColor)
                                 .frame(height: max(3, geo.size.height * fraction))
-                                .opacity(i == entries.count - 1 ? 1 : 0.88)
+                                .opacity(isSelected
+                                         ? 1
+                                         : (isDimmed ? 0.35
+                                            : (i == entries.count - 1 ? 1 : 0.88)))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: cornerR)
+                                        .stroke(isSelected ? baseColor : .clear, lineWidth: 2)
+                                        .padding(-2)
+                                )
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(duration: 0.2)) {
+                                selectedIndex = (selectedIndex == i) ? nil : i
+                            }
+                        }
                     }
                 }
             }
@@ -508,32 +539,6 @@ struct BarChartView: View {
             .animation(.spring(duration: 0.4), value: metric)
             .animation(.spring(duration: 0.4), value: range)
         }
-    }
-}
-
-struct MacroDonutView: View {
-    let segments: [(Double, Color)]
-    private let r: CGFloat = 36
-    private let stroke: CGFloat = 12
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Color.primary.opacity(0.06), lineWidth: stroke)
-                .frame(width: r * 2, height: r * 2)
-
-            ForEach(Array(segments.enumerated()), id: \.offset) { i, seg in
-                let offset = segments.prefix(i).map(\.0).reduce(0, +)
-                if seg.0 > 0 {
-                    Circle()
-                        .trim(from: offset, to: max(offset, offset + seg.0 - 0.01))
-                        .stroke(seg.1, style: StrokeStyle(lineWidth: stroke, lineCap: .butt))
-                        .frame(width: r * 2, height: r * 2)
-                        .rotationEffect(.degrees(-90))
-                }
-            }
-        }
-        .frame(width: 88, height: 88)
     }
 }
 
