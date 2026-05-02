@@ -46,4 +46,32 @@ extension View {
                 )
         )
     }
+
+    /// Soft fade at the top and bottom of a scroll view so content
+    /// melts into the background instead of butting against the edges.
+    func scrollEdgeFade(top: CGFloat = 28, bottom: CGFloat = 96) -> some View {
+        overlay(alignment: .top) {
+            LinearGradient(
+                colors: [
+                    Color(UIColor.systemBackground),
+                    Color(UIColor.systemBackground).opacity(0)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: top)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
+        .overlay(alignment: .bottom) {
+            LinearGradient(
+                colors: [
+                    Color(UIColor.systemBackground).opacity(0),
+                    Color(UIColor.systemBackground)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: bottom)
+            .allowsHitTesting(false)
+        }
+    }
 }
