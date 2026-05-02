@@ -31,6 +31,7 @@ struct Achievement: Identifiable {
     }
 }
 
+@MainActor
 func buildAchievements(_ s: AppState) -> [Achievement] {
     [
         Achievement(id: "first_log", icon: "🌱",
