@@ -123,6 +123,49 @@ class ClaudeService {
         return try await runMessages(content: userContent, apiKey: apiKey)
     }
 
+    func refineFood(base: LoggedMeal,
+                    additions: String,
+                    apiKey: String,
+                    language: AppLanguage = .system) async throws -> FoodAnalysis {
+        let prompt = """
+        A user already logged this meal:
+        Name: \(base.name)
+        Totals: \(base.kcal) kcal — \(base.protein)g protein, \(base.carbs)g carbs, \(base.fat)g fat
+
+        They want to update it with these additions / changes:
+        \"\"\"
+        \(additions)
+        \"\"\"
+
+        Return ONLY a JSON object representing the UPDATED combined meal — no markdown.
+
+        Required format:
+        {
+          "name": "Updated dish name (concise, reflecting the addition)",
+          "confidence": 70,
+          "kcal": 600,
+          "protein": 30,
+          "carbs": 50,
+          "fat": 22,
+          "items": [
+            { "name": "Original component", "kcal": 400, "weight": "..." },
+            { "name": "Added component",    "kcal": 200, "weight": "..." }
+          ]
+        }
+
+        Rules:
+        - Sum quantities sensibly. If the addition adds ~200 kcal, the new total is roughly base + 200.
+        - Combine, do not replace, unless the user explicitly says "replace" / "instead of"
+        - 2-5 ingredients in items, including the new ones
+        - confidence is 0-100
+        - Weights as strings like "100g", "1 cup", "2 slices"
+        \(Self.languageInstruction(language))
+        """
+
+        let userContent: [[String: Any]] = [["type": "text", "text": prompt]]
+        return try await runMessages(content: userContent, apiKey: apiKey)
+    }
+
     private func runMessages(content: [[String: Any]], apiKey: String) async throws -> FoodAnalysis {
         let requestBody: [String: Any] = [
             "model": "claude-opus-4-7",

@@ -161,6 +161,42 @@ final class AppState: ObservableObject {
         updateDailyAchievementsCounters()
     }
 
+    /// Replace a logged meal's nutrition with a fresh Claude analysis,
+    /// keeping the original id, timestamp, and meal type.
+    func updateMeal(id: UUID, with analysis: FoodAnalysis) {
+        guard let idx = loggedMeals.firstIndex(where: { $0.id == id }) else { return }
+        let original = loggedMeals[idx]
+        let quality = estimateQuality(
+            kcal: analysis.kcal,
+            protein: analysis.protein,
+            carbs: analysis.carbs,
+            fat: analysis.fat
+        )
+        let updated = LoggedMeal(
+            id: original.id,
+            timestamp: original.timestamp,
+            type: original.type,
+            emoji: mealEmojiFor(name: analysis.name, type: original.type),
+            name: analysis.name,
+            kcal: analysis.kcal,
+            protein: analysis.protein,
+            carbs: analysis.carbs,
+            fat: analysis.fat,
+            quality: quality
+        )
+        loggedMeals[idx] = updated
+        LoggedMeal.saveAll(loggedMeals)
+        updateDailyAchievementsCounters()
+    }
+
+    func deleteMeal(id: UUID) {
+        guard loggedMeals.contains(where: { $0.id == id }) else { return }
+        loggedMeals.removeAll { $0.id == id }
+        LoggedMeal.saveAll(loggedMeals)
+        totalMealsLogged = max(0, totalMealsLogged - 1)
+        recomputeStreak()
+    }
+
     private func recomputeStreak() {
         let s = streak
         if s > longestStreak { longestStreak = s }
