@@ -6,9 +6,22 @@ struct DiaryView: View {
     @EnvironmentObject var appState: AppState
     @State private var expanded: Int = 0
 
+    private var allDays: [DayRecord] {
+        let f = DateFormatter(); f.dateFormat = "MMM d"
+        let today = DayRecord(
+            label: "Today",
+            date: f.string(from: Date()),
+            consumed: appState.todayConsumedKcal,
+            storedGoal: nil,
+            mealCount: appState.todayMeals.count,
+            meals: appState.todayMeals
+        )
+        return [today] + sampleHistoryDays
+    }
+
     private var avgCalories: Int {
-        let total = historyDays.map(\.consumed).reduce(0, +)
-        return total / max(1, historyDays.count)
+        let total = allDays.map(\.consumed).reduce(0, +)
+        return total / max(1, allDays.count)
     }
 
     var body: some View {
@@ -18,7 +31,7 @@ struct DiaryView: View {
                     Text("Diary")
                         .font(.system(size: 28, weight: .bold))
                         .tracking(-0.8)
-                    Text("\(historyDays.count) days · 7-day avg \(avgCalories.formatted(.number)) kcal")
+                    Text("\(allDays.count) days · 7-day avg \(avgCalories.formatted(.number)) kcal")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -27,7 +40,7 @@ struct DiaryView: View {
                 .padding(.bottom, 18)
 
                 VStack(spacing: 10) {
-                    ForEach(Array(historyDays.enumerated()), id: \.offset) { i, day in
+                    ForEach(Array(allDays.enumerated()), id: \.offset) { i, day in
                         DayCardView(
                             day: day,
                             liveGoal: appState.goal,
@@ -52,7 +65,7 @@ struct DayCardView: View {
 
     private var effectiveGoal: Int { day.storedGoal ?? liveGoal }
     private var over: Bool { day.consumed > effectiveGoal }
-    private var pct: Double { min(1, Double(day.consumed) / Double(effectiveGoal)) }
+    private var pct: Double { min(1, Double(day.consumed) / Double(max(1, effectiveGoal))) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -162,10 +175,18 @@ struct TrendsView: View {
     }
 
     private var rangeTitle: String {
+        let f = DateFormatter()
         switch range {
-        case .week:  return "Apr 24 – Apr 30"
-        case .month: return "April 2026"
-        case .year:  return "Last 12 months"
+        case .week:
+            f.dateFormat = "MMM d"
+            let today = Date()
+            let weekAgo = Calendar.current.date(byAdding: .day, value: -6, to: today) ?? today
+            return "\(f.string(from: weekAgo)) – \(f.string(from: today))"
+        case .month:
+            f.dateFormat = "MMMM yyyy"
+            return f.string(from: Date())
+        case .year:
+            return "Last 12 months"
         }
     }
 
@@ -326,7 +347,6 @@ struct TrendsView: View {
             .frame(height: 140)
             .padding(.bottom, 8)
 
-            // Labels
             let barGap: CGFloat = range == .month ? 2 : 8
             HStack(spacing: barGap) {
                 ForEach(Array(entries.enumerated()), id: \.offset) { i, e in
@@ -401,14 +421,12 @@ struct BarChartView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
-                // Goal/target dashed line
                 Rectangle()
                     .fill(Color.secondary.opacity(0.25))
                     .frame(height: 1)
                     .frame(maxWidth: .infinity)
                     .offset(y: -geo.size.height * (targetLine / maxVal))
 
-                // Bars
                 HStack(alignment: .bottom, spacing: barGap) {
                     ForEach(Array(entries.enumerated()), id: \.offset) { i, e in
                         let val = metric == .calories ? Double(e.consumed) : Double(e.quality)
@@ -489,6 +507,15 @@ struct ProfileView: View {
     @EnvironmentObject var appState: AppState
     @Binding var showGoalSheet: Bool
     @State private var showAPIKeyField = false
+    @State private var showNameEditor = false
+    @State private var showAchievements = false
+    @State private var nameDraft = ""
+    @State private var healthRequesting = false
+
+    private var healthValue: String {
+        if !appState.healthKit.isAvailable { return "Unavailable" }
+        return appState.healthKitAuthorized ? "Connected" : "Not connected"
+    }
 
     var body: some View {
         ScrollView {
@@ -507,17 +534,45 @@ struct ProfileView: View {
                                value: "\(appState.goal.formatted(.number)) kcal") {
                         showGoalSheet = true
                     }
-                    ProfileRow(icon: "🥩", label: "Protein target", value: "140g") {}
-                    ProfileRow(icon: "⚖️", label: "Weight goal", value: "−4.5 kg", isLast: true) {}
+                    ProfileRow(icon: "🥩", label: "Protein target",
+                               value: "\(appState.todayProteinStat.goal)g") {}
+                    ProfileRow(icon: "🏆", label: "Achievements",
+                               value: "\(buildAchievements(appState).filter(\.isUnlocked).count) unlocked",
+                               isLast: true) {
+                        showAchievements = true
+                    }
                 }
 
-                ProfileSection(label: "Preferences") {
+                ProfileSection(label: "Account") {
+                    ProfileRow(icon: "👤", label: "Display name",
+                               value: appState.userName) {
+                        nameDraft = appState.userName
+                        showNameEditor = true
+                    }
                     ProfileRow(icon: appState.isDark ? "🌙" : "☀️", label: "Dark mode",
                                value: appState.isDark ? "On" : "Off") {
                         appState.isDark.toggle()
                     }
-                    ProfileRow(icon: "🔔", label: "Notifications", value: "3 enabled") {}
-                    ProfileRow(icon: "🔗", label: "Apple Health", value: "Connected", isLast: true) {}
+                    ProfileRow(icon: "🔔", label: "Notifications",
+                               value: appState.notificationsEnabled ? "On" : "Off",
+                               isLast: true) {
+                        appState.notificationsEnabled.toggle()
+                    }
+                }
+
+                ProfileSection(label: "Health") {
+                    ProfileRow(
+                        icon: "🔗",
+                        label: "Apple Health",
+                        value: healthRequesting ? "Connecting…" : healthValue,
+                        isLast: true
+                    ) {
+                        Task {
+                            healthRequesting = true
+                            await appState.enableHealthKit()
+                            healthRequesting = false
+                        }
+                    }
                 }
 
                 ProfileSection(label: "AI Analysis") {
@@ -567,6 +622,18 @@ struct ProfileView: View {
             }
         }
         .background(Color(UIColor.systemBackground))
+        .sheet(isPresented: $showAchievements) { AchievementsView() }
+        .alert("Display name", isPresented: $showNameEditor) {
+            TextField("Your name", text: $nameDraft)
+                .textInputAutocapitalization(.words)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { appState.userName = trimmed }
+            }
+        } message: {
+            Text("This is shown on the Home screen.")
+        }
     }
 
     var avatarCard: some View {
@@ -587,23 +654,25 @@ struct ProfileView: View {
                 Text(appState.userName)
                     .font(.system(size: 18, weight: .bold))
                     .tracking(-0.4)
-                Text("Member since Jan 2026")
+                Text(appState.memberSinceLabel)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 12) {
-                    Text("\u{2022} **12** day streak")
+                    Text("\u{2022} **\(appState.streak)** day streak")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                    Text("\u{2022} **148** meals logged")
+                    Text("\u{2022} **\(appState.totalMealsLogged)** meals logged")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 4)
             }
+            Spacer(minLength: 0)
         }
         .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 24)
         .padding(.bottom, 22)
     }
 }
@@ -618,14 +687,14 @@ struct ProfileSection<Content: View>: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .tracking(0.6)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 28)
                 .padding(.bottom, 8)
 
             VStack(spacing: 0) {
                 content()
             }
             .cardStyle()
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 24)
         }
         .padding(.bottom, 18)
     }
@@ -721,7 +790,6 @@ struct GoalSheetView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 24)
 
-            // Stepper
             HStack(spacing: 18) {
                 StepBtn(sfName: "minus") { draft = Swift.max(min, draft - 50) }
 
@@ -742,7 +810,6 @@ struct GoalSheetView: View {
             }
             .padding(.bottom, 22)
 
-            // Slider
             VStack(spacing: 6) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -755,7 +822,6 @@ struct GoalSheetView: View {
                             .frame(width: Swift.max(4, geo.size.width * pct), height: 4)
                             .frame(maxHeight: .infinity, alignment: .center)
                             .animation(.interactiveSpring(), value: pct)
-                        // Thumb
                         Circle()
                             .fill(.white)
                             .overlay(Circle().stroke(accentOrange, lineWidth: 2))
@@ -763,7 +829,6 @@ struct GoalSheetView: View {
                             .shadow(color: .black.opacity(0.12), radius: 3, y: 2)
                             .offset(x: Swift.max(0, geo.size.width * pct - 10))
                             .animation(.interactiveSpring(), value: pct)
-                        // Hidden slider for touch input
                         Slider(value: Binding(
                             get: { Double(draft) },
                             set: { draft = Int($0 / 50) * 50 }
@@ -784,7 +849,6 @@ struct GoalSheetView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 22)
 
-            // Presets
             Text("QUICK PRESETS")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)

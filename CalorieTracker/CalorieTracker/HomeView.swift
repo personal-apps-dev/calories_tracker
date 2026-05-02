@@ -5,11 +5,9 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @Binding var showGoalSheet: Bool
+    var onAvatarTap: () -> Void = {}
 
-    private var avgQuality: Int {
-        let total = todayMeals.map(\.quality).reduce(0, +)
-        return total / max(1, todayMeals.count)
-    }
+    @State private var showAchievements = false
 
     private var dateString: String {
         let f = DateFormatter()
@@ -24,13 +22,19 @@ struct HomeView: View {
                 streakPill
                 ringSection
                 macroSection
-                activitySection
                 qualitySection
+                activitySection
                 mealsSection
             }
             .padding(.bottom, 110)
         }
         .background(Color(UIColor.systemBackground))
+        .sheet(isPresented: $showAchievements) {
+            AchievementsView()
+        }
+        .refreshable {
+            if appState.healthKitAuthorized { await appState.refreshHealth() }
+        }
     }
 
     // MARK: Header
@@ -46,17 +50,21 @@ struct HomeView: View {
                     .tracking(-0.8)
             }
             Spacer()
-            Circle()
-                .fill(LinearGradient(
-                    colors: [accentOrange, Color(hex: "5B8DEF")],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Text(String(appState.userName.prefix(1)).uppercased())
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                )
+            Button(action: onAvatarTap) {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [accentOrange, Color(hex: "5B8DEF")],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Text(String(appState.userName.prefix(1)).uppercased())
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open profile")
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -66,19 +74,26 @@ struct HomeView: View {
     // MARK: Streak pill
 
     var streakPill: some View {
-        HStack(spacing: 6) {
-            Text("🔥").font(.system(size: 14))
-            Text("\(todayStreak) day streak")
-                .font(.system(size: 12, weight: .semibold))
+        Button(action: { showAchievements = true }) {
+            HStack(spacing: 6) {
+                Text(streakEmoji(appState.streak)).font(.system(size: 14))
+                Text("\(appState.streak) day streak")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.primary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 5)
+            .padding(.leading, 10)
+            .padding(.trailing, 10)
+            .background(
+                Capsule()
+                    .fill(Color(UIColor.secondarySystemBackground))
+                    .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+            )
         }
-        .padding(.vertical, 5)
-        .padding(.leading, 10)
-        .padding(.trailing, 12)
-        .background(
-            Capsule()
-                .fill(Color(UIColor.secondarySystemBackground))
-                .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-        )
+        .buttonStyle(.plain)
         .padding(.horizontal, 24)
         .padding(.bottom, 18)
     }
@@ -88,9 +103,9 @@ struct HomeView: View {
     var ringSection: some View {
         VStack(spacing: 14) {
             CalorieRingView(
-                consumed: todayConsumed,
+                consumed: appState.todayConsumedKcal,
                 goal: appState.goal,
-                quality: avgQuality
+                quality: appState.avgQualityToday
             )
             Button(action: { showGoalSheet = true }) {
                 Label(
@@ -117,9 +132,9 @@ struct HomeView: View {
 
     var macroSection: some View {
         HStack(spacing: 24) {
-            MacroBarView(label: "Protein", stat: todayProtein, color: Color(hex: "5B8DEF"))
-            MacroBarView(label: "Carbs",   stat: todayCarbs,   color: Color(hex: "F4B740"))
-            MacroBarView(label: "Fat",     stat: todayFat,     color: Color(hex: "E86A6A"))
+            MacroBarView(label: "Protein", stat: appState.todayProteinStat, color: Color(hex: "5B8DEF"))
+            MacroBarView(label: "Carbs",   stat: appState.todayCarbsStat,   color: Color(hex: "F4B740"))
+            MacroBarView(label: "Fat",     stat: appState.todayFatStat,     color: Color(hex: "E86A6A"))
         }
         .padding(18)
         .cardStyle()
@@ -127,20 +142,25 @@ struct HomeView: View {
         .padding(.bottom, 20)
     }
 
-    // MARK: Activity
+    // MARK: Quality
 
-    var activitySection: some View {
-        ActivityCardView(burned: todayCaloriesBurned, activities: todayActivities)
+    var qualitySection: some View {
+        FoodQualityCardView(meals: appState.todayMeals)
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
     }
 
-    // MARK: Quality
+    // MARK: Activity (under quality, per request)
 
-    var qualitySection: some View {
-        FoodQualityCardView(meals: todayMeals)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+    var activitySection: some View {
+        ActivityCardView(
+            burned: appState.caloriesBurnedToday,
+            activities: appState.activitiesToday,
+            connected: appState.healthKitAuthorized,
+            onConnect: { Task { await appState.enableHealthKit() } }
+        )
+        .padding(.horizontal, 24)
+        .padding(.bottom, 24)
     }
 
     // MARK: Meals list
@@ -152,25 +172,48 @@ struct HomeView: View {
                     .font(.system(size: 18, weight: .bold))
                     .tracking(-0.4)
                 Spacer()
-                Text("See all")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(accentOrange)
+                if !appState.todayMeals.isEmpty {
+                    Text("\(appState.todayMeals.count) logged")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(accentOrange)
+                }
             }
             .padding(.horizontal, 24)
 
-            VStack(spacing: 0) {
-                ForEach(Array(todayMeals.enumerated()), id: \.offset) { i, meal in
-                    MealRowView(meal: meal)
-                    if i < todayMeals.count - 1 {
-                        Divider().padding(.leading, 60)
+            if appState.todayMeals.isEmpty {
+                emptyMealsCard
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(appState.todayMeals.enumerated()), id: \.offset) { i, meal in
+                        MealRowView(meal: meal)
+                        if i < appState.todayMeals.count - 1 {
+                            Divider().padding(.leading, 60)
+                        }
                     }
                 }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 16)
+                .cardStyle()
+                .padding(.horizontal, 24)
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 16)
-            .cardStyle()
-            .padding(.horizontal, 24)
         }
+    }
+
+    var emptyMealsCard: some View {
+        VStack(spacing: 8) {
+            Text("📷")
+                .font(.system(size: 32))
+            Text("No meals logged today")
+                .font(.system(size: 14, weight: .semibold))
+            Text("Tap the camera button below to snap a meal and have it analyzed.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .cardStyle()
+        .padding(.horizontal, 24)
     }
 }
 
@@ -185,8 +228,10 @@ struct CalorieRingView: View {
     private let strokeW: CGFloat = 14
 
     private var over: Bool { consumed > goal }
-    private var progress: Double { min(1, Double(consumed) / Double(goal)) }
-    private var overProgress: Double { over ? min(1, Double(consumed - goal) / Double(goal)) : 0 }
+    private var progress: Double { min(1, Double(consumed) / Double(max(1, goal))) }
+    private var overProgress: Double {
+        over ? min(1, Double(consumed - goal) / Double(max(1, goal))) : 0
+    }
     private var ringColor: Color { over ? Color(hex: "E86A6A") : accentOrange }
 
     var body: some View {
@@ -271,7 +316,7 @@ struct MacroBarView: View {
     let stat: MacroStat
     let color: Color
 
-    private var progress: Double { min(1, Double(stat.grams) / Double(stat.goal)) }
+    private var progress: Double { min(1, Double(stat.grams) / Double(max(1, stat.goal))) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -318,6 +363,8 @@ struct MacroBarView: View {
 struct ActivityCardView: View {
     let burned: Int
     let activities: [Activity]
+    let connected: Bool
+    let onConnect: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -335,38 +382,77 @@ struct ActivityCardView: View {
                         Text("\(burned)")
                             .font(.system(size: 28, weight: .bold))
                             .tracking(-0.8)
-                        Text("kcal · today")
+                        Text(connected ? "kcal · today" : "kcal")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
-                HStack(spacing: 4) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 9))
-                        .foregroundColor(Color(hex: "FF375F"))
-                    Text("HEALTH")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.4)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .background(
-                    Capsule()
-                        .fill(Color(UIColor.tertiarySystemBackground))
-                        .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-                )
+                healthBadge
             }
 
-            HStack(spacing: 6) {
-                ForEach(activities) { ActivityTileView(activity: $0) }
+            if connected {
+                if activities.isEmpty {
+                    Text("No workouts recorded yet today.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                } else {
+                    HStack(spacing: 6) {
+                        ForEach(activities.prefix(3)) { ActivityTileView(activity: $0) }
+                    }
+                }
+            } else {
+                Button(action: onConnect) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(hex: "FF375F"))
+                        Text("Connect Apple Health")
+                            .font(.system(size: 13, weight: .semibold))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(UIColor.tertiarySystemBackground))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 14)
         .cardStyle()
+    }
+
+    var healthBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 9))
+                .foregroundColor(Color(hex: "FF375F"))
+            Text(connected ? "HEALTH" : "OFF")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.4)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            Capsule()
+                .fill(Color(UIColor.tertiarySystemBackground))
+                .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+        )
     }
 }
 
@@ -412,7 +498,7 @@ struct FoodQualityCardView: View {
     let meals: [Meal]
 
     private var avg: Int {
-        meals.map(\.quality).reduce(0, +) / max(1, meals.count)
+        meals.isEmpty ? 0 : meals.map(\.quality).reduce(0, +) / meals.count
     }
     private var best: Meal?  { meals.max(by: { $0.quality < $1.quality }) }
     private var worst: Meal? { meals.min(by: { $0.quality < $1.quality }) }
@@ -439,7 +525,7 @@ struct FoodQualityCardView: View {
                     let qc = qualityColor(avg)
                     HStack(spacing: 5) {
                         Circle().fill(qc).frame(width: 5, height: 5)
-                        Text(qualityLabel(avg))
+                        Text(meals.isEmpty ? "Log a meal to start" : qualityLabel(avg))
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(qc)
                     }
@@ -451,7 +537,7 @@ struct FoodQualityCardView: View {
                 Spacer()
             }
 
-            if let b = best, let w = worst {
+            if let b = best, let w = worst, meals.count > 1 {
                 Divider()
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 2) {
