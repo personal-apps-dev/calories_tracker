@@ -36,7 +36,7 @@ class ClaudeService {
 
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
 
-    func analyzeFood(image: UIImage, apiKey: String) async throws -> FoodAnalysis {
+    func analyzeFood(image: UIImage, apiKey: String, language: AppLanguage = .system) async throws -> FoodAnalysis {
         let resized = Self.resize(image, maxDim: 1024)
         guard let imageData = resized.jpegData(compressionQuality: 0.75) else {
             throw AnalysisError.imageConversion
@@ -65,27 +65,71 @@ class ClaudeService {
         - Include 2-5 main ingredients
         - confidence is 0-100 (how certain you are)
         - All weights as strings like "100g", "2 tbsp", "1 large"
+        \(Self.languageInstruction(language))
         """
 
+        let userContent: [[String: Any]] = [
+            [
+                "type": "image",
+                "source": [
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": base64
+                ]
+            ],
+            ["type": "text", "text": prompt]
+        ]
+
+        return try await runMessages(content: userContent, apiKey: apiKey)
+    }
+
+    func analyzeFoodText(description: String, apiKey: String, language: AppLanguage = .system) async throws -> FoodAnalysis {
+        let prompt = """
+        A user described what they ate. Estimate the nutrition for a reasonable typical portion of this meal.
+
+        User description: \"\"\"
+        \(description)
+        \"\"\"
+
+        Return ONLY a JSON object — no markdown, no explanation, nothing else.
+
+        Required format:
+        {
+          "name": "Dish name (concise)",
+          "confidence": 70,
+          "kcal": 450,
+          "protein": 25,
+          "carbs": 45,
+          "fat": 18,
+          "items": [
+            { "name": "Ingredient 1", "kcal": 200, "weight": "100g" },
+            { "name": "Ingredient 2", "kcal": 150, "weight": "80g" }
+          ]
+        }
+
+        Rules:
+        - Realistic estimates for a typical portion
+        - 2-5 main ingredients
+        - confidence is 0-100 — be honest; vague descriptions deserve lower confidence
+        - All weights as strings like "100g", "2 tbsp", "1 large"
+        - If the description doesn't sound like food at all, set confidence to 0 and zero out kcal/macros
+        \(Self.languageInstruction(language))
+        """
+
+        let userContent: [[String: Any]] = [
+            ["type": "text", "text": prompt]
+        ]
+
+        return try await runMessages(content: userContent, apiKey: apiKey)
+    }
+
+    private func runMessages(content: [[String: Any]], apiKey: String) async throws -> FoodAnalysis {
         let requestBody: [String: Any] = [
             "model": "claude-opus-4-7",
             "max_tokens": 600,
             "messages": [[
                 "role": "user",
-                "content": [
-                    [
-                        "type": "image",
-                        "source": [
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": base64
-                        ]
-                    ],
-                    [
-                        "type": "text",
-                        "text": prompt
-                    ]
-                ]
+                "content": content
             ]]
         ]
 
@@ -112,7 +156,6 @@ class ClaudeService {
             throw AnalysisError.noText
         }
 
-        // Extract JSON from the response (strip any accidental markdown)
         let jsonText = extractJSON(from: text)
         guard let jsonData = jsonText.data(using: .utf8) else {
             throw AnalysisError.parseError
@@ -133,6 +176,14 @@ class ClaudeService {
         )
     }
 
+    private static func languageInstruction(_ lang: AppLanguage) -> String {
+        guard let prompt = lang.claudePromptName else { return "" }
+        return """
+
+        Important: write all text fields in the JSON ("name", item "name"s, and item "weight"s like "100 г") in \(prompt). Keep the JSON keys themselves in English.
+        """
+    }
+
     private static func resize(_ image: UIImage, maxDim: CGFloat) -> UIImage {
         let w = image.size.width, h = image.size.height
         let scale = min(1, maxDim / max(w, h))
@@ -147,7 +198,6 @@ class ClaudeService {
     }
 
     private func extractJSON(from text: String) -> String {
-        // Handle responses that might be wrapped in markdown code blocks
         if let start = text.range(of: "{"),
            let end = text.range(of: "}", options: .backwards) {
             return String(text[start.lowerBound..<end.upperBound])

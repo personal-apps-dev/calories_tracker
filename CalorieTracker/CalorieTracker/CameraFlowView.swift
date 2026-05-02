@@ -15,6 +15,7 @@ struct CameraFlowView: View {
     @State private var phase: CameraPhase = .viewfinder
     @State private var analysis: FoodAnalysis?
     @State private var analysisError: String?
+    @State private var showTextEntry = false
 
     var body: some View {
         ZStack {
@@ -25,7 +26,8 @@ struct CameraFlowView: View {
                 ViewfinderView(
                     camera: camera,
                     onCapture: { startAnalysis() },
-                    onClose: onClose
+                    onClose: onClose,
+                    onDescribe: { showTextEntry = true }
                 )
             case .analyzing:
                 AnalyzingView(onClose: onClose)
@@ -54,6 +56,13 @@ struct CameraFlowView: View {
             guard let image, phase == .viewfinder else { return }
             phase = .analyzing
             Task { await analyzeWithClaude(image: image) }
+        }
+        .sheet(isPresented: $showTextEntry) {
+            DescribeMealSheet { description in
+                showTextEntry = false
+                phase = .analyzing
+                Task { await analyzeText(description) }
+            }
         }
     }
 
@@ -98,7 +107,35 @@ struct CameraFlowView: View {
 
         do {
             let result = try await ClaudeService.shared.analyzeFood(
-                image: image, apiKey: appState.claudeApiKey
+                image: image,
+                apiKey: appState.claudeApiKey,
+                language: appState.appLanguage
+            )
+            await MainActor.run {
+                analysis = result
+                phase = .result
+            }
+        } catch {
+            await MainActor.run {
+                analysisError = error.localizedDescription
+                phase = .error
+            }
+        }
+    }
+
+    private func analyzeText(_ description: String) async {
+        guard !appState.claudeApiKey.isEmpty else {
+            await MainActor.run {
+                analysisError = "No API key set. Add your Anthropic API key in the Profile tab."
+                phase = .error
+            }
+            return
+        }
+        do {
+            let result = try await ClaudeService.shared.analyzeFoodText(
+                description: description,
+                apiKey: appState.claudeApiKey,
+                language: appState.appLanguage
             )
             await MainActor.run {
                 analysis = result
@@ -113,12 +150,129 @@ struct CameraFlowView: View {
     }
 }
 
+// MARK: - DescribeMealSheet
+
+struct DescribeMealSheet: View {
+    let onSubmit: (String) -> Void
+
+    @Environment(\.dismiss) var dismiss
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
+    private let examples = [
+        "Greek yogurt with berries and honey",
+        "Chicken caesar salad, large bowl",
+        "Two slices of pepperoni pizza",
+        "Avocado toast with poached egg",
+        "Bowl of borscht with sour cream",
+    ]
+
+    private var canSubmit: Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Describe what you ate. Be as specific as you can — quantities and prep details help with accuracy.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("e.g. \"Bowl of oatmeal with banana and a tablespoon of peanut butter\"")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 14)
+                    }
+                    TextEditor(text: $text)
+                        .font(.system(size: 15))
+                        .focused($focused)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                }
+                .frame(minHeight: 160)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                        )
+                )
+
+                Text("Examples")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.5)
+                    .padding(.top, 4)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(examples, id: \.self) { ex in
+                            Button {
+                                text = ex
+                            } label: {
+                                Text(ex)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(
+                                        Capsule().fill(Color(UIColor.tertiarySystemBackground))
+                                            .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                Button {
+                    onSubmit(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                        Text("Analyze")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(canSubmit ? accentOrange : Color.secondary.opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: canSubmit ? accentOrange.opacity(0.4) : .clear, radius: 12, y: 4)
+                }
+                .disabled(!canSubmit)
+            }
+            .padding(20)
+            .navigationTitle("Describe a meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focused = true }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
 // MARK: - ViewfinderView
 
 struct ViewfinderView: View {
     @ObservedObject var camera: CameraManager
     let onCapture: () -> Void
     let onClose: () -> Void
+    var onDescribe: () -> Void = {}
 
     @State private var pickerItem: PhotosPickerItem?
 
@@ -187,7 +341,9 @@ struct ViewfinderView: View {
                             SmallCameraButton(sfName: "photo.on.rectangle")
                         }
                         ShutterButton(action: onCapture)
-                        SmallCameraButton(sfName: "arrow.triangle.2.circlepath.camera")
+                        Button(action: onDescribe) {
+                            SmallCameraButton(sfName: "text.bubble")
+                        }
                     }
                 }
                 .padding(.bottom, 60)

@@ -1,0 +1,60 @@
+"Hey, %@ 👋" = "Hola, %@ 👋";
+"Hey, there 👋" = "Hola 👋";
+
+"Profile" = "Perfil";
+"Diary" = "Diario";
+"Trends" = "Tendencias";
+"Achievements" = "Logros";
+
+"Today's meals" = "Comidas de hoy";
+"%d logged" = "%d registradas";
+"No meals logged today" = "Aún no has registrado comidas hoy";
+"Tap the camera button below to snap a meal and have it analyzed." = "Toca la cámara abajo para fotografiar una comida y analizarla.";
+"%d day streak" = "Racha de %d días";
+"Calories burned" = "Calorías quemadas";
+"kcal · today" = "kcal · hoy";
+"Connect Apple Health" = "Conectar Apple Salud";
+"No workouts recorded yet today." = "Aún no hay entrenamientos registrados hoy.";
+"remaining" = "restantes";
+"over by" = "te has pasado por";
+"Goal · %@ kcal" = "Meta · %@ kcal";
+"Nutrition Score" = "Puntuación nutricional";
+
+"Protein" = "Proteína";
+"Carbs" = "Carbohidratos";
+"Fat" = "Grasa";
+"Macro split" = "Reparto de macros";
+
+"Goals" = "Metas";
+"Account" = "Cuenta";
+"Health" = "Salud";
+"AI Analysis" = "Análisis IA";
+"About" = "Acerca de";
+"Daily calorie goal" = "Meta diaria de calorías";
+"Display name" = "Nombre";
+"Language" = "Idioma";
+"Dark mode" = "Modo oscuro";
+"Notifications" = "Notificaciones";
+"Apple Health" = "Apple Salud";
+"Claude API Key" = "Clave API de Claude";
+
+"Describe a meal" = "Describe una comida";
+"Analyze" = "Analizar";
+"Cancel" = "Cancelar";
+"Log to %@ · %d kcal" = "Registrar en %@ · %d kcal";
+
+"Breakfast" = "Desayuno";
+"Lunch" = "Almuerzo";
+"Dinner" = "Cena";
+"Snack" = "Tentempié";
+
+"No diary yet" = "Diario vacío";
+"Snap a meal with the camera to start building your history." = "Fotografía una comida para empezar tu historial.";
+"No trends yet" = "Aún no hay tendencias";
+"Start logging meals and your weekly, monthly, and yearly stats will appear here." = "Empieza a registrar comidas y aquí verás tus estadísticas semanales, mensuales y anuales.";
+
+"Meal details" = "Detalles de la comida";
+"Done" = "Listo";
+"Why this score" = "Por qué esta puntuación";
+"Macros" = "Macros";
+"kcal total" = "kcal en total";

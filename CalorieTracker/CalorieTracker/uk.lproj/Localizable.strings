@@ -1,0 +1,60 @@
+"Hey, %@ 👋" = "Привіт, %@ 👋";
+"Hey, there 👋" = "Привіт 👋";
+
+"Profile" = "Профіль";
+"Diary" = "Щоденник";
+"Trends" = "Тренди";
+"Achievements" = "Досягнення";
+
+"Today's meals" = "Сьогоднішні страви";
+"%d logged" = "записано %d";
+"No meals logged today" = "Сьогодні ще нічого не записано";
+"Tap the camera button below to snap a meal and have it analyzed." = "Натисніть кнопку камери нижче, щоб сфотографувати страву та отримати аналіз.";
+"%d day streak" = "%d днів поспіль";
+"Calories burned" = "Спалені калорії";
+"kcal · today" = "ккал · сьогодні";
+"Connect Apple Health" = "Підключити Apple Health";
+"No workouts recorded yet today." = "Сьогодні ще немає тренувань.";
+"remaining" = "залишилось";
+"over by" = "перевищено на";
+"Goal · %@ kcal" = "Ціль · %@ ккал";
+"Nutrition Score" = "Оцінка харчування";
+
+"Protein" = "Білки";
+"Carbs" = "Вуглеводи";
+"Fat" = "Жири";
+"Macro split" = "Розподіл макро";
+
+"Goals" = "Цілі";
+"Account" = "Акаунт";
+"Health" = "Здоров'я";
+"AI Analysis" = "Аналіз AI";
+"About" = "Про застосунок";
+"Daily calorie goal" = "Щоденна ціль калорій";
+"Display name" = "Ім'я";
+"Language" = "Мова";
+"Dark mode" = "Темна тема";
+"Notifications" = "Сповіщення";
+"Apple Health" = "Apple Health";
+"Claude API Key" = "Ключ Claude API";
+
+"Describe a meal" = "Опишіть страву";
+"Analyze" = "Аналізувати";
+"Cancel" = "Скасувати";
+"Log to %@ · %d kcal" = "Записати до %@ · %d ккал";
+
+"Breakfast" = "Сніданок";
+"Lunch" = "Обід";
+"Dinner" = "Вечеря";
+"Snack" = "Перекус";
+
+"No diary yet" = "Щоденник порожній";
+"Snap a meal with the camera to start building your history." = "Сфотографуйте страву, щоб почати вести історію.";
+"No trends yet" = "Трендів ще немає";
+"Start logging meals and your weekly, monthly, and yearly stats will appear here." = "Почніть записувати страви — і тут з'являться тижнева, місячна та річна статистика.";
+
+"Meal details" = "Деталі страви";
+"Done" = "Готово";
+"Why this score" = "Чому така оцінка";
+"Macros" = "Макроелементи";
+"kcal total" = "ккал загалом";

@@ -1,0 +1,69 @@
+/* Greeting on the Home screen. %@ is the user's name. */
+"Hey, %@ 👋" = "Hey, %@ 👋";
+"Hey, there 👋" = "Hey, there 👋";
+
+/* Tabs / titles */
+"Profile" = "Profile";
+"Diary" = "Diary";
+"Trends" = "Trends";
+"Achievements" = "Achievements";
+
+/* Home */
+"Today's meals" = "Today's meals";
+"%d logged" = "%d logged";
+"No meals logged today" = "No meals logged today";
+"Tap the camera button below to snap a meal and have it analyzed." = "Tap the camera button below to snap a meal and have it analyzed.";
+"%d day streak" = "%d day streak";
+"Calories burned" = "Calories burned";
+"kcal · today" = "kcal · today";
+"Connect Apple Health" = "Connect Apple Health";
+"No workouts recorded yet today." = "No workouts recorded yet today.";
+"remaining" = "remaining";
+"over by" = "over by";
+"Goal · %@ kcal" = "Goal · %@ kcal";
+"Nutrition Score" = "Nutrition Score";
+
+/* Macros */
+"Protein" = "Protein";
+"Carbs" = "Carbs";
+"Fat" = "Fat";
+"Macro split" = "Macro split";
+
+/* Profile sections */
+"Goals" = "Goals";
+"Account" = "Account";
+"Health" = "Health";
+"AI Analysis" = "AI Analysis";
+"About" = "About";
+"Daily calorie goal" = "Daily calorie goal";
+"Display name" = "Display name";
+"Language" = "Language";
+"Dark mode" = "Dark mode";
+"Notifications" = "Notifications";
+"Apple Health" = "Apple Health";
+"Claude API Key" = "Claude API Key";
+
+/* Camera flow */
+"Describe a meal" = "Describe a meal";
+"Analyze" = "Analyze";
+"Cancel" = "Cancel";
+"Log to %@ · %d kcal" = "Log to %@ · %d kcal";
+
+/* Meal types */
+"Breakfast" = "Breakfast";
+"Lunch" = "Lunch";
+"Dinner" = "Dinner";
+"Snack" = "Snack";
+
+/* Empty states */
+"No diary yet" = "No diary yet";
+"Snap a meal with the camera to start building your history." = "Snap a meal with the camera to start building your history.";
+"No trends yet" = "No trends yet";
+"Start logging meals and your weekly, monthly, and yearly stats will appear here." = "Start logging meals and your weekly, monthly, and yearly stats will appear here.";
+
+/* Meal detail */
+"Meal details" = "Meal details";
+"Done" = "Done";
+"Why this score" = "Why this score";
+"Macros" = "Macros";
+"kcal total" = "kcal total";

@@ -589,6 +589,8 @@ struct ProfileView: View {
     @State private var showAchievements = false
     @State private var nameDraft = ""
     @State private var healthRequesting = false
+    @State private var showLanguagePicker = false
+    @State private var showRestartHint = false
 
     private var healthValue: String {
         if !appState.healthKit.isAvailable { return "Unavailable" }
@@ -626,6 +628,10 @@ struct ProfileView: View {
                                value: appState.userName) {
                         nameDraft = appState.userName
                         showNameEditor = true
+                    }
+                    ProfileRow(icon: "🌐", label: "Language",
+                               value: appState.appLanguage.displayName) {
+                        showLanguagePicker = true
                     }
                     ProfileRow(icon: appState.isDark ? "🌙" : "☀️", label: "Dark mode",
                                value: appState.isDark ? "On" : "Off") {
@@ -701,6 +707,21 @@ struct ProfileView: View {
         }
         .background(Color(UIColor.systemBackground))
         .sheet(isPresented: $showAchievements) { AchievementsView() }
+        .sheet(isPresented: $showLanguagePicker) {
+            LanguagePickerSheet(selected: appState.appLanguage) { lang in
+                let didChange = lang != appState.appLanguage
+                appState.setLanguage(lang)
+                showLanguagePicker = false
+                if didChange { showRestartHint = true }
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .alert("Restart to apply language", isPresented: $showRestartHint) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("AI responses already use the new language. Force-quit the app and reopen it to switch the interface.")
+        }
         .alert("Display name", isPresented: $showNameEditor) {
             TextField("Your name", text: $nameDraft)
                 .textInputAutocapitalization(.words)
@@ -755,16 +776,83 @@ struct ProfileView: View {
     }
 }
 
+struct LanguagePickerSheet: View {
+    let selected: AppLanguage
+    let onPick: (AppLanguage) -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ForEach(AppLanguage.allCases) { lang in
+                    Button {
+                        onPick(lang)
+                    } label: {
+                        HStack(spacing: 14) {
+                            Text(flagEmoji(for: lang))
+                                .font(.system(size: 22))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(lang.displayName)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Text(subtitle(for: lang))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if lang == selected {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(accentOrange)
+                            }
+                        }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 20)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if lang != AppLanguage.allCases.last {
+                        Divider().padding(.leading, 56)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .navigationTitle("Language")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func flagEmoji(for lang: AppLanguage) -> String {
+        switch lang {
+        case .system:    return "⚙️"
+        case .english:   return "🇺🇸"
+        case .ukrainian: return "🇺🇦"
+        case .french:    return "🇫🇷"
+        case .spanish:   return "🇪🇸"
+        }
+    }
+
+    private func subtitle(for lang: AppLanguage) -> String {
+        switch lang {
+        case .system:    return "Match your device language"
+        case .english:   return "English"
+        case .ukrainian: return "Українська мова"
+        case .french:    return "Langue française"
+        case .spanish:   return "Idioma español"
+        }
+    }
+}
+
 struct ProfileSection<Content: View>: View {
     let label: String
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(label.uppercased())
+            Text(LocalizedStringKey(label))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .tracking(0.6)
+                .textCase(.uppercase)
                 .padding(.horizontal, 28)
                 .padding(.bottom, 8)
 
@@ -797,14 +885,14 @@ struct ProfileRow: View {
                             .fill(Color(UIColor.tertiarySystemBackground))
                     )
 
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(isDanger ? Color(hex: "E86A6A") : .primary)
 
                 Spacer()
 
                 if let value {
-                    Text(value)
+                    Text(LocalizedStringKey(value))
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }

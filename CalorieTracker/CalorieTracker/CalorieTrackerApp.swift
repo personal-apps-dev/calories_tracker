@@ -32,6 +32,21 @@ final class AppState: ObservableObject {
     @AppStorage("healthKitEnabled")     var healthKitEnabled: Bool = false
     @AppStorage("notificationsEnabled") var notificationsEnabled: Bool = false
     @AppStorage("hasSeenNamePrompt")    var hasSeenNamePrompt: Bool = false
+    @AppStorage("appLanguage")          private(set) var appLanguageRaw: String = AppLanguage.system.rawValue
+
+    var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageRaw) ?? .system
+    }
+
+    func setLanguage(_ lang: AppLanguage) {
+        appLanguageRaw = lang.rawValue
+        if let code = lang.localeCode {
+            UserDefaults.standard.set([code], forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        }
+        UserDefaults.standard.synchronize()
+    }
 
     // MARK: Live state
 
