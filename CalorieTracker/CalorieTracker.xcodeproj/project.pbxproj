@@ -20,6 +20,7 @@
 		B1000000000000000000000D /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* HealthKitService.swift */; };
 		B1000000000000000000000F /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* HealthKit.framework */; };
 		B10000000000000000000010 /* MealDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* MealDetailView.swift */; };
+		B10000000000000000000011 /* NutritionSummarySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* NutritionSummarySheet.swift */; };
 		B10000000000000000000020 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
@@ -39,6 +40,7 @@
 		A1000000000000000000000E /* CalorieTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalorieTracker.entitlements; sourceTree = "<group>"; };
 		A1000000000000000000000F /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		A10000000000000000000010 /* MealDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealDetailView.swift; sourceTree = "<group>"; };
+		A10000000000000000000011 /* NutritionSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionSummarySheet.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A10000000000000000000022 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A10000000000000000000023 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 				A1000000000000000000000C /* Achievements.swift */,
 				A1000000000000000000000D /* HealthKitService.swift */,
 				A10000000000000000000010 /* MealDetailView.swift */,
+				A10000000000000000000011 /* NutritionSummarySheet.swift */,
 				A1000000000000000000000E /* CalorieTracker.entitlements */,
 				A10000000000000000000020 /* Localizable.strings */,
 				A10000000000000000000009 /* Assets.xcassets */,
@@ -201,6 +204,7 @@
 				B1000000000000000000000C /* Achievements.swift in Sources */,
 				B1000000000000000000000D /* HealthKitService.swift in Sources */,
 				B10000000000000000000010 /* MealDetailView.swift in Sources */,
+				B10000000000000000000011 /* NutritionSummarySheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
