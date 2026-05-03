@@ -533,9 +533,11 @@ struct ActivityTileView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
-            Text(activity.duration)
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
+            if !activity.duration.isEmpty {
+                Text(activity.duration)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 10)
