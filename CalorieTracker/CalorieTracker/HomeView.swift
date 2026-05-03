@@ -330,10 +330,50 @@ struct CalorieRingView: View {
         .animation(.easeInOut(duration: 0.4), value: ringColor)
     }
 
+    /// Short, supportive label that reflects both progress and time of day.
+    /// Always positive — overshoots are reframed, not scolded.
     private var label: String {
-        if pct > 1.05 { return "over by" }
-        if pct >= 0.95 { return "on track" }
-        return "remaining"
+        let hour = Calendar.current.component(.hour, from: Date())
+
+        // Over goal — keep it kind
+        if pct > 1.20 { return "Big day — rest well" }
+        if pct > 1.10 { return "A little extra today" }
+        if pct > 1.05 { return "Just past target" }
+
+        // On target band
+        if pct >= 0.95 { return "Right on target 🎯" }
+
+        // Approaching
+        if pct >= 0.85 { return "Almost there" }
+        if pct >= 0.70 { return hour < 18 ? "Save room for dinner" : "Closing in nicely" }
+
+        // Mid-day
+        if pct >= 0.45 {
+            switch hour {
+            case ..<11:  return "Strong start"
+            case 11..<14: return "Steady pace"
+            case 14..<18: return "Going well"
+            default:      return "Plenty of room left"
+            }
+        }
+
+        // Light eating
+        if pct >= 0.15 {
+            switch hour {
+            case ..<11:  return "Easing in ☕️"
+            case 11..<14: return "Light morning"
+            case 14..<18: return "Lots of fuel ahead"
+            default:      return "Room for one more"
+            }
+        }
+
+        // Empty / very light
+        switch hour {
+        case ..<11:  return "Fresh canvas ✨"
+        case 11..<14: return "Time to fuel up"
+        case 14..<18: return "Don't forget to eat"
+        default:      return "Quiet day so far"
+        }
     }
 
     private var bigNumber: String {
@@ -346,6 +386,9 @@ struct CalorieRingView: View {
             Text(label)
                 .font(.system(size: 13, weight: pct >= 0.95 ? .semibold : .medium))
                 .foregroundColor(pct >= 0.95 ? ringColor : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: 168)
                 .padding(.bottom, 2)
                 .animation(.easeInOut(duration: 0.4), value: ringColor)
 
