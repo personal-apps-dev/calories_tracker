@@ -323,30 +323,13 @@ struct ViewfinderView: View {
             // Bottom controls
             VStack {
                 Spacer()
-                VStack(spacing: 24) {
-                    HStack(spacing: 4) {
-                        ForEach(["Scan", "Barcode", "Label"], id: \.self) { mode in
-                            Text(mode)
-                                .font(.system(size: 12, weight: .semibold))
-                                .tracking(0.3)
-                                .foregroundColor(mode == "Scan" ? .white : .white.opacity(0.5))
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 14)
-                                .background(
-                                    Capsule()
-                                        .fill(mode == "Scan" ? Color.white.opacity(0.16) : Color.clear)
-                                )
-                        }
+                HStack(spacing: 60) {
+                    PhotosPicker(selection: $pickerItem, matching: .images) {
+                        SmallCameraButton(sfName: "photo.on.rectangle")
                     }
-
-                    HStack(spacing: 60) {
-                        PhotosPicker(selection: $pickerItem, matching: .images) {
-                            SmallCameraButton(sfName: "photo.on.rectangle")
-                        }
-                        ShutterButton(action: onCapture)
-                        Button(action: onDescribe) {
-                            SmallCameraButton(sfName: "text.bubble")
-                        }
+                    ShutterButton(action: onCapture)
+                    Button(action: onDescribe) {
+                        SmallCameraButton(sfName: "text.bubble")
                     }
                 }
                 .padding(.bottom, 60)
