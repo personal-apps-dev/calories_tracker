@@ -142,9 +142,14 @@ final class AppState: ObservableObject {
         async let burned = healthKit.todayActiveEnergyKcal()
         async let workouts = healthKit.todayWorkouts()
         let (b, w) = await (burned, workouts)
-        caloriesBurnedToday = b
+        // Some sources only write workout totals (no per-minute active-
+        // energy samples), so the active-energy query can come back lower
+        // than the workouts list. Use the larger of the two to make sure
+        // the headline never reads less than what's visible below it.
+        let workoutSum = w.map(\.kcal).reduce(0, +)
+        caloriesBurnedToday = Swift.max(b, workoutSum)
         activitiesToday = w
-        if b >= 500 { activeDays = max(activeDays, 1) }
+        if caloriesBurnedToday >= 500 { activeDays = max(activeDays, 1) }
 
         if weightFromHealth {
             await syncWeightsFromHealth()

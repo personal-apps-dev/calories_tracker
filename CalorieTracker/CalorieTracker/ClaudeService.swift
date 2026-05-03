@@ -20,12 +20,52 @@ private struct NutritionJSON: Codable {
     let carbs: Int
     let fat: Int
     let items: [ItemJSON]
+
+    private enum CodingKeys: String, CodingKey {
+        case name, confidence, kcal, protein, carbs, fat, items
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name       = try c.decode(String.self, forKey: .name)
+        confidence = try Self.flexibleInt(c, .confidence)
+        kcal       = try Self.flexibleInt(c, .kcal)
+        protein    = try Self.flexibleInt(c, .protein)
+        carbs      = try Self.flexibleInt(c, .carbs)
+        fat        = try Self.flexibleInt(c, .fat)
+        items      = (try? c.decode([ItemJSON].self, forKey: .items)) ?? []
+    }
+
+    /// Accepts Int, Double, or numeric String — Claude occasionally
+    /// returns "25" or 25.0 instead of 25, especially with non-English
+    /// language instructions.
+    private static func flexibleInt(_ c: KeyedDecodingContainer<CodingKeys>,
+                                    _ key: CodingKeys) throws -> Int {
+        if let i = try? c.decode(Int.self, forKey: key) { return i }
+        if let d = try? c.decode(Double.self, forKey: key) { return Int(d.rounded()) }
+        if let s = try? c.decode(String.self, forKey: key),
+           let d = Double(s.replacingOccurrences(of: ",", with: ".")) {
+            return Int(d.rounded())
+        }
+        return 0
+    }
 }
 
 private struct ItemJSON: Codable {
     let name: String
     let kcal: Int
     let weight: String
+
+    private enum CodingKeys: String, CodingKey { case name, kcal, weight }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = (try? c.decode(String.self, forKey: .name)) ?? ""
+        if let i = try? c.decode(Int.self, forKey: .kcal) { kcal = i }
+        else if let d = try? c.decode(Double.self, forKey: .kcal) { kcal = Int(d.rounded()) }
+        else { kcal = 0 }
+        weight = (try? c.decode(String.self, forKey: .weight)) ?? ""
+    }
 }
 
 // MARK: - ClaudeService
@@ -85,34 +125,40 @@ class ClaudeService {
 
     func analyzeFoodText(description: String, apiKey: String, language: AppLanguage = .system) async throws -> FoodAnalysis {
         let prompt = """
-        A user described what they ate. Estimate the nutrition for a reasonable typical portion of this meal.
+        A user described what they ate or drank. Estimate the nutrition.
 
-        User description: \"\"\"
+        User description:
+        \"\"\"
         \(description)
         \"\"\"
 
-        Return ONLY a JSON object — no markdown, no explanation, nothing else.
+        Even if the input is just a single ingredient, a beverage, a snack,
+        or a partial meal, ALWAYS return a nutrition estimate — never refuse,
+        never leave fields empty.
+
+        Return ONLY a JSON object — no markdown, no preamble, no explanation.
+        The very first character of your reply must be "{" and the last "}".
 
         Required format:
         {
-          "name": "Dish name (concise)",
+          "name": "Concise dish or drink name",
           "confidence": 70,
-          "kcal": 450,
-          "protein": 25,
-          "carbs": 45,
-          "fat": 18,
+          "kcal": 25,
+          "protein": 1,
+          "carbs": 2,
+          "fat": 1,
           "items": [
-            { "name": "Ingredient 1", "kcal": 200, "weight": "100g" },
-            { "name": "Ingredient 2", "kcal": 150, "weight": "80g" }
+            { "name": "Ingredient or component", "kcal": 5, "weight": "30 ml" }
           ]
         }
 
         Rules:
-        - Realistic estimates for a typical portion
-        - 2-5 main ingredients
-        - confidence is 0-100 — be honest; vague descriptions deserve lower confidence
-        - All weights as strings like "100g", "2 tbsp", "1 large"
-        - If the description doesn't sound like food at all, set confidence to 0 and zero out kcal/macros
+        - ALWAYS return JSON. Even for a single ingredient or a drink, return one item with reasonable nutrition.
+        - Respect any quantity the user gave ("10 grams" means 10g, not 100g; "small cup" means small)
+        - If no quantity is given, assume a typical serving (e.g. one cup of coffee, one apple)
+        - 1-5 entries in items
+        - confidence 0-100 — only set 0 if the input is genuinely not edible at all
+        - Weights as strings like "10g", "200 ml", "1 large", "1 cup"
         \(Self.languageInstruction(language))
         """
 
@@ -137,7 +183,9 @@ class ClaudeService {
         \(additions)
         \"\"\"
 
-        Return ONLY a JSON object representing the UPDATED combined meal — no markdown.
+        ALWAYS return a JSON estimate — never refuse, never leave fields empty.
+        Return ONLY a JSON object — no markdown, no preamble, no explanation.
+        The very first character of your reply must be "{" and the last "}".
 
         Required format:
         {
@@ -155,9 +203,9 @@ class ClaudeService {
 
         Rules:
         - Sum quantities sensibly. If the addition adds ~200 kcal, the new total is roughly base + 200.
-        - Combine, do not replace, unless the user explicitly says "replace" / "instead of"
-        - 2-5 ingredients in items, including the new ones
-        - confidence is 0-100
+        - Combine, do not replace, unless the user explicitly says "replace" / "instead of" / "swap"
+        - 1-5 ingredients in items, including the new ones
+        - confidence 0-100
         - Weights as strings like "100g", "1 cup", "2 slices"
         \(Self.languageInstruction(language))
         """
@@ -169,7 +217,7 @@ class ClaudeService {
     private func runMessages(content: [[String: Any]], apiKey: String) async throws -> FoodAnalysis {
         let requestBody: [String: Any] = [
             "model": "claude-opus-4-7",
-            "max_tokens": 600,
+            "max_tokens": 1200,
             "messages": [[
                 "role": "user",
                 "content": content

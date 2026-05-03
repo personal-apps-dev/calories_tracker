@@ -33,19 +33,28 @@ final class HealthKitService: ObservableObject {
               let type = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) else {
             return 0
         }
-        let start = Calendar.current.startOfDay(for: Date())
-        let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let cal = Calendar.current
+        let now = Date()
+        let start = cal.startOfDay(for: now)
 
         return await withCheckedContinuation { cont in
-            let q = HKStatisticsQuery(
+            let query = HKStatisticsCollectionQuery(
                 quantityType: type,
-                quantitySamplePredicate: pred,
-                options: .cumulativeSum
-            ) { _, stats, _ in
-                let kcal = stats?.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
-                cont.resume(returning: Int(kcal.rounded()))
+                quantitySamplePredicate: nil,
+                options: .cumulativeSum,
+                anchorDate: start,
+                intervalComponents: DateComponents(day: 1)
+            )
+            query.initialResultsHandler = { _, results, _ in
+                var total: Double = 0
+                results?.enumerateStatistics(from: start, to: now) { stats, _ in
+                    if let sum = stats.sumQuantity() {
+                        total += sum.doubleValue(for: .kilocalorie())
+                    }
+                }
+                cont.resume(returning: Int(total.rounded()))
             }
-            self.store.execute(q)
+            self.store.execute(query)
         }
     }
 
