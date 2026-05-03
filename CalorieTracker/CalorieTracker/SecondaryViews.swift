@@ -109,6 +109,7 @@ struct DayCardView: View {
                         .animation(.spring(duration: 0.25), value: isOpen)
                 }
                 .padding(14)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
