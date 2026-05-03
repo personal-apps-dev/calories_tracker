@@ -28,8 +28,7 @@ struct HomeView: View {
                 header
                 streakPill
                 ringSection
-                macroSection
-                qualitySection
+                macroAndQualityRow
                 mealsSection
             }
             .padding(.bottom, 110)
@@ -170,26 +169,68 @@ struct HomeView: View {
         .padding(.bottom, 24)
     }
 
-    // MARK: Macros
+    // MARK: Macros + Nutrition Score (side-by-side)
 
-    var macroSection: some View {
-        HStack(spacing: 24) {
-            MacroBarView(label: "Protein", stat: appState.todayProteinStat, color: Color(hex: "5B8DEF"))
-            MacroBarView(label: "Carbs",   stat: appState.todayCarbsStat,   color: Color(hex: "F4B740"))
-            MacroBarView(label: "Fat",     stat: appState.todayFatStat,     color: Color(hex: "E86A6A"))
+    var macroAndQualityRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            macroCardCompact
+            qualityCardCompact
         }
-        .padding(18)
-        .cardStyle()
         .padding(.horizontal, 24)
         .padding(.bottom, 20)
     }
 
-    // MARK: Quality
+    var macroCardCompact: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("MACROS")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .tracking(0.6)
+            VStack(spacing: 9) {
+                CompactMacroRow(label: "Protein", stat: appState.todayProteinStat, color: Color(hex: "5B8DEF"))
+                CompactMacroRow(label: "Carbs",   stat: appState.todayCarbsStat,   color: Color(hex: "F4B740"))
+                CompactMacroRow(label: "Fat",     stat: appState.todayFatStat,     color: Color(hex: "E86A6A"))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 156)
+        .cardStyle()
+    }
 
-    var qualitySection: some View {
-        FoodQualityCardView(meals: appState.todayMeals)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
+    var qualityCardCompact: some View {
+        let avg = appState.avgQualityToday
+        let qc = qualityColor(avg)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("NUTRITION SCORE")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .tracking(0.6)
+
+            QualityRingView(value: avg, size: 76, strokeW: 8)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 2)
+
+            HStack(spacing: 5) {
+                Circle().fill(qc).frame(width: 5, height: 5)
+                Text(appState.todayMeals.isEmpty ? "Log a meal" : qualityLabel(avg))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(qc)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.vertical, 3)
+            .padding(.horizontal, 9)
+            .background(Capsule().fill(qc.opacity(0.13)))
+            .frame(maxWidth: .infinity, alignment: .center)
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 156)
+        .cardStyle()
     }
 
     // MARK: Meals list
@@ -407,6 +448,49 @@ struct CalorieRingView: View {
                     .tracking(0.4)
             }
             .padding(.top, 6)
+        }
+    }
+}
+
+// MARK: - CompactMacroRow (for the side-by-side compact card)
+
+struct CompactMacroRow: View {
+    let label: String
+    let stat: MacroStat
+    let color: Color
+
+    private var pct: Double { min(1, Double(stat.grams) / Double(max(1, stat.goal))) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(LocalizedStringKey(label))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                HStack(spacing: 1) {
+                    Text("\(stat.grams)")
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(-0.2)
+                        .monospacedDigit()
+                    Text("/\(stat.goal)g")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                }
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.06))
+                        .frame(height: 3)
+                    Capsule()
+                        .fill(color)
+                        .frame(width: geo.size.width * pct, height: 3)
+                        .animation(.spring(duration: 0.6), value: pct)
+                }
+            }
+            .frame(height: 3)
         }
     }
 }
