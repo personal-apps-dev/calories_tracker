@@ -31,6 +31,9 @@ struct MealDetailView: View {
                 VStack(spacing: 14) {
                     headerCard
                     macrosCard
+                    if !live.items.isEmpty {
+                        ingredientsCard
+                    }
                     scoreCard
                     factorsCard
                     actionsCard
@@ -157,6 +160,46 @@ struct MealDetailView: View {
                 MacroLineView(label: "Protein", grams: live.protein, totalKcal: live.kcal, gPerKcal: 4, color: Color(hex: "5B8DEF"))
                 MacroLineView(label: "Carbs",   grams: live.carbs,   totalKcal: live.kcal, gPerKcal: 4, color: Color(hex: "F4B740"))
                 MacroLineView(label: "Fat",     grams: live.fat,     totalKcal: live.kcal, gPerKcal: 9, color: Color(hex: "E86A6A"))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    // MARK: Ingredients
+
+    var ingredientsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("🧂 Ingredients")
+            VStack(spacing: 0) {
+                ForEach(Array(live.items.enumerated()), id: \.element.id) { i, item in
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name)
+                                .font(.system(size: 14, weight: .medium))
+                                .lineLimit(2)
+                            if !item.weight.isEmpty {
+                                Text(item.weight)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        HStack(alignment: .lastTextBaseline, spacing: 2) {
+                            Text("\(item.kcal)")
+                                .font(.system(size: 14, weight: .semibold))
+                                .monospacedDigit()
+                            Text("kcal")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 10)
+                    if i < live.items.count - 1 {
+                        Divider()
+                    }
+                }
             }
         }
         .padding(16)

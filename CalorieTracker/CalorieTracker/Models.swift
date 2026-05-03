@@ -131,6 +131,30 @@ struct WeightEntry: Codable, Identifiable, Hashable {
 
 // MARK: - LoggedMeal (persisted)
 
+struct LoggedItem: Codable, Identifiable, Hashable {
+    let id: UUID
+    let name: String
+    let kcal: Int
+    let weight: String
+
+    init(id: UUID = UUID(), name: String, kcal: Int, weight: String) {
+        self.id = id
+        self.name = name
+        self.kcal = kcal
+        self.weight = weight
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, kcal, weight }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(UUID.self, forKey: .id)) ?? UUID()
+        name = (try? c.decode(String.self, forKey: .name)) ?? ""
+        kcal = (try? c.decode(Int.self, forKey: .kcal)) ?? 0
+        weight = (try? c.decode(String.self, forKey: .weight)) ?? ""
+    }
+}
+
 struct LoggedMeal: Codable, Identifiable {
     let id: UUID
     let timestamp: Date
@@ -142,10 +166,12 @@ struct LoggedMeal: Codable, Identifiable {
     let carbs: Int
     let fat: Int
     let quality: Int
+    let items: [LoggedItem]
 
     init(id: UUID = UUID(), timestamp: Date = Date(),
          type: String, emoji: String, name: String,
-         kcal: Int, protein: Int, carbs: Int, fat: Int, quality: Int) {
+         kcal: Int, protein: Int, carbs: Int, fat: Int, quality: Int,
+         items: [LoggedItem] = []) {
         self.id = id
         self.timestamp = timestamp
         self.type = type
@@ -156,6 +182,26 @@ struct LoggedMeal: Codable, Identifiable {
         self.carbs = carbs
         self.fat = fat
         self.quality = quality
+        self.items = items
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, timestamp, type, emoji, name, kcal, protein, carbs, fat, quality, items
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        type = try c.decode(String.self, forKey: .type)
+        emoji = try c.decode(String.self, forKey: .emoji)
+        name = try c.decode(String.self, forKey: .name)
+        kcal = try c.decode(Int.self, forKey: .kcal)
+        protein = try c.decode(Int.self, forKey: .protein)
+        carbs = try c.decode(Int.self, forKey: .carbs)
+        fat = try c.decode(Int.self, forKey: .fat)
+        quality = try c.decode(Int.self, forKey: .quality)
+        items = (try? c.decode([LoggedItem].self, forKey: .items)) ?? []
     }
 
     var asMeal: Meal {

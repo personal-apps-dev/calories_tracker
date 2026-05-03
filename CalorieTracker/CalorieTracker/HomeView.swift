@@ -263,12 +263,33 @@ struct CalorieRingView: View {
     private let size: CGFloat = 220
     private let strokeW: CGFloat = 14
 
-    private var over: Bool { consumed > goal }
-    private var progress: Double { min(1, Double(consumed) / Double(max(1, goal))) }
-    private var overProgress: Double {
-        over ? min(1, Double(consumed - goal) / Double(max(1, goal))) : 0
+    /// Three zones: under (more than 10% below goal), on-track
+    /// (within ±10%), over (more than 10% above).
+    private enum Status { case under, onTrack, over }
+
+    private var pct: Double { Double(consumed) / Double(max(1, goal)) }
+    private var status: Status {
+        if pct > 1.10 { return .over }
+        if pct >= 0.90 { return .onTrack }
+        return .under
     }
-    private var ringColor: Color { over ? Color(hex: "E86A6A") : accentOrange }
+
+    private var progress: Double { min(1, pct) }
+    private var overProgress: Double {
+        status == .over ? min(1, Double(consumed - goal) / Double(max(1, goal))) : 0
+    }
+
+    private let neutralColor = Color(hex: "9CA3AF")
+    private let onTrackColor = Color(hex: "3DB46D")
+    private let overColor    = Color(hex: "E86A6A")
+
+    private var ringColor: Color {
+        switch status {
+        case .under:   return neutralColor
+        case .onTrack: return onTrackColor
+        case .over:    return overColor
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -283,10 +304,11 @@ struct CalorieRingView: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.spring(duration: 0.8), value: progress)
 
-            if over {
+            if status == .over {
                 Circle()
                     .trim(from: 0, to: overProgress)
-                    .stroke(ringColor.opacity(0.55), style: StrokeStyle(lineWidth: strokeW + 2, lineCap: .round))
+                    .stroke(overColor.opacity(0.55),
+                            style: StrokeStyle(lineWidth: strokeW + 2, lineCap: .round))
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
                     .animation(.spring(duration: 0.8), value: overProgress)
@@ -297,17 +319,40 @@ struct CalorieRingView: View {
         .frame(width: size, height: size)
     }
 
+    private var label: String {
+        switch status {
+        case .under:   return "remaining"
+        case .onTrack: return "on track"
+        case .over:    return "over by"
+        }
+    }
+
+    private var bigNumber: String {
+        switch status {
+        case .over: return abs(consumed - goal).formatted(.number)
+        default:    return abs(goal - consumed).formatted(.number)
+        }
+    }
+
+    private var bigNumberColor: Color {
+        switch status {
+        case .under:   return .primary
+        case .onTrack: return onTrackColor
+        case .over:    return overColor
+        }
+    }
+
     var ringCenter: some View {
         VStack(spacing: 0) {
-            Text(over ? "over by" : "remaining")
-                .font(.system(size: 13, weight: over ? .semibold : .medium))
-                .foregroundColor(over ? Color(hex: "E86A6A") : .secondary)
+            Text(label)
+                .font(.system(size: 13, weight: status == .under ? .medium : .semibold))
+                .foregroundColor(status == .under ? .secondary : ringColor)
                 .padding(.bottom, 2)
 
-            Text(abs(goal - consumed).formatted(.number))
+            Text(bigNumber)
                 .font(.system(size: 56, weight: .bold))
                 .tracking(-2)
-                .foregroundColor(over ? Color(hex: "E86A6A") : .primary)
+                .foregroundColor(bigNumberColor)
 
             HStack(spacing: 2) {
                 Text(consumed.formatted(.number))

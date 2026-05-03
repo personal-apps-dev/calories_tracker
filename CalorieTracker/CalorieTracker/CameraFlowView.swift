@@ -91,7 +91,10 @@ struct CameraFlowView: View {
             protein: analysis.protein,
             carbs: analysis.carbs,
             fat: analysis.fat,
-            quality: quality
+            quality: quality,
+            items: analysis.items.map {
+                LoggedItem(name: $0.name, kcal: $0.kcal, weight: $0.weight)
+            }
         )
         appState.logMeal(meal)
     }
