@@ -263,32 +263,42 @@ struct CalorieRingView: View {
     private let size: CGFloat = 220
     private let strokeW: CGFloat = 14
 
-    /// Three zones: under (more than 10% below goal), on-track
-    /// (within ±10%), over (more than 10% above).
-    private enum Status { case under, onTrack, over }
-
     private var pct: Double { Double(consumed) / Double(max(1, goal)) }
-    private var status: Status {
-        if pct > 1.10 { return .over }
-        if pct >= 0.90 { return .onTrack }
-        return .under
+
+    /// Color interpolates smoothly across stops:
+    ///   pct 0.0 → orange   (just starting the day)
+    ///   pct 1.0 → green    (hit the goal exactly)
+    ///   pct 1.5 → red      (50% over)
+    /// Below 0 clamps to orange, above 1.5 clamps to red.
+    private static let stops: [(Double, (Double, Double, Double))] = [
+        (0.0, (1.00, 0.42, 0.21)),  // FF6B35 — accent orange
+        (1.0, (0.24, 0.71, 0.43)),  // 3DB46D — peak green
+        (1.5, (0.91, 0.42, 0.42)),  // E86A6A — over red
+    ]
+
+    private static func gradientColor(for pct: Double) -> Color {
+        let p = max(stops.first!.0, min(stops.last!.0, pct))
+        for i in 0..<(stops.count - 1) {
+            let a = stops[i], b = stops[i + 1]
+            if p >= a.0 && p <= b.0 {
+                let t = (p - a.0) / (b.0 - a.0)
+                return Color(
+                    red:   a.1.0 + (b.1.0 - a.1.0) * t,
+                    green: a.1.1 + (b.1.1 - a.1.1) * t,
+                    blue:  a.1.2 + (b.1.2 - a.1.2) * t
+                )
+            }
+        }
+        let last = stops.last!.1
+        return Color(red: last.0, green: last.1, blue: last.2)
     }
+
+    private var ringColor: Color { Self.gradientColor(for: pct) }
 
     private var progress: Double { min(1, pct) }
+    private var isOver: Bool { pct > 1.0 }
     private var overProgress: Double {
-        status == .over ? min(1, Double(consumed - goal) / Double(max(1, goal))) : 0
-    }
-
-    private let neutralColor = Color(hex: "9CA3AF")
-    private let onTrackColor = Color(hex: "3DB46D")
-    private let overColor    = Color(hex: "E86A6A")
-
-    private var ringColor: Color {
-        switch status {
-        case .under:   return neutralColor
-        case .onTrack: return onTrackColor
-        case .over:    return overColor
-        }
+        isOver ? min(1, Double(consumed - goal) / Double(max(1, goal))) : 0
     }
 
     var body: some View {
@@ -304,10 +314,10 @@ struct CalorieRingView: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.spring(duration: 0.8), value: progress)
 
-            if status == .over {
+            if isOver {
                 Circle()
                     .trim(from: 0, to: overProgress)
-                    .stroke(overColor.opacity(0.55),
+                    .stroke(ringColor.opacity(0.55),
                             style: StrokeStyle(lineWidth: strokeW + 2, lineCap: .round))
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
@@ -317,42 +327,33 @@ struct CalorieRingView: View {
             ringCenter
         }
         .frame(width: size, height: size)
+        .animation(.easeInOut(duration: 0.4), value: ringColor)
     }
 
     private var label: String {
-        switch status {
-        case .under:   return "remaining"
-        case .onTrack: return "on track"
-        case .over:    return "over by"
-        }
+        if pct > 1.05 { return "over by" }
+        if pct >= 0.95 { return "on track" }
+        return "remaining"
     }
 
     private var bigNumber: String {
-        switch status {
-        case .over: return abs(consumed - goal).formatted(.number)
-        default:    return abs(goal - consumed).formatted(.number)
-        }
-    }
-
-    private var bigNumberColor: Color {
-        switch status {
-        case .under:   return .primary
-        case .onTrack: return onTrackColor
-        case .over:    return overColor
-        }
+        let delta = pct > 1.0 ? consumed - goal : goal - consumed
+        return abs(delta).formatted(.number)
     }
 
     var ringCenter: some View {
         VStack(spacing: 0) {
             Text(label)
-                .font(.system(size: 13, weight: status == .under ? .medium : .semibold))
-                .foregroundColor(status == .under ? .secondary : ringColor)
+                .font(.system(size: 13, weight: pct >= 0.95 ? .semibold : .medium))
+                .foregroundColor(pct >= 0.95 ? ringColor : .secondary)
                 .padding(.bottom, 2)
+                .animation(.easeInOut(duration: 0.4), value: ringColor)
 
             Text(bigNumber)
                 .font(.system(size: 56, weight: .bold))
                 .tracking(-2)
-                .foregroundColor(bigNumberColor)
+                .foregroundColor(pct >= 0.95 ? ringColor : .primary)
+                .animation(.easeInOut(duration: 0.4), value: ringColor)
 
             HStack(spacing: 2) {
                 Text(consumed.formatted(.number))
