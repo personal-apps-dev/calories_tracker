@@ -14,6 +14,7 @@ struct HomeView: View {
 
     @State private var showAchievements = false
     @State private var selectedLogged: LoggedMeal?
+    @State private var showActivityCard = false
 
     private var dateString: String {
         let f = DateFormatter()
@@ -139,16 +140,26 @@ struct HomeView: View {
                     )
                 }
                 if appState.caloriesBurnedToday > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("+\(appState.caloriesBurnedToday) burned")
-                            .font(.system(size: 12, weight: .semibold))
+                    Button {
+                        withAnimation(.spring(duration: 0.3)) {
+                            showActivityCard.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("+\(appState.caloriesBurnedToday) burned")
+                                .font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                                .rotationEffect(.degrees(showActivityCard ? 180 : 0))
+                        }
+                        .foregroundColor(accentOrange)
+                        .padding(.vertical, 7)
+                        .padding(.horizontal, 12)
+                        .background(Capsule().fill(accentOrange.opacity(0.13)))
                     }
-                    .foregroundColor(accentOrange)
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 12)
-                    .background(Capsule().fill(accentOrange.opacity(0.13)))
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -181,15 +192,22 @@ struct HomeView: View {
 
     // MARK: Activity (under quality, per request)
 
+    @ViewBuilder
     var activitySection: some View {
-        ActivityCardView(
-            burned: appState.caloriesBurnedToday,
-            activities: appState.activitiesToday,
-            connected: appState.healthKitAuthorized,
-            onConnect: { Task { await appState.enableHealthKit() } }
-        )
-        .padding(.horizontal, 24)
-        .padding(.bottom, 24)
+        if showActivityCard && appState.caloriesBurnedToday > 0 {
+            ActivityCardView(
+                burned: appState.caloriesBurnedToday,
+                activities: appState.activitiesToday,
+                connected: appState.healthKitAuthorized,
+                onConnect: { Task { await appState.enableHealthKit() } }
+            )
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .move(edge: .top)),
+                removal:   .opacity.combined(with: .move(edge: .top))
+            ))
+        }
     }
 
     // MARK: Meals list
