@@ -169,6 +169,74 @@ class ClaudeService {
         return try await runMessages(content: userContent, apiKey: apiKey)
     }
 
+    /// Free-text recap of the user's day, with concrete next steps.
+    /// Returns plain text (no JSON) — keep prompt focused so Claude
+    /// stays in markdown-free, paragraph form.
+    func dailyNutritionSummary(stats: DayStats,
+                               language: AppLanguage,
+                               userName: String,
+                               apiKey: String) async throws -> String {
+        let mealLines = stats.meals.enumerated().map { i, m -> String in
+            let f = DateFormatter(); f.dateFormat = "h:mm a"
+            return "\(i + 1). \(m.name) (\(m.type), \(f.string(from: m.timestamp))) — \(m.kcal) kcal · \(m.protein)g P / \(m.carbs)g C / \(m.fat)g F · score \(m.quality)/100"
+        }.joined(separator: "\n")
+
+        let nameClause = userName.isEmpty ? "the user" : userName
+        let langInstruction = Self.languageInstruction(language).isEmpty
+            ? ""
+            : "\nWrite the entire response in \(language.claudePromptName ?? "English")."
+
+        let prompt = """
+        You are a friendly nutrition coach reviewing today's meals for \(nameClause).
+
+        Today's data:
+        - Calorie goal: \(stats.goal) kcal (effective \(stats.effectiveGoal) including \(stats.burned) kcal burned via activity)
+        - Total eaten: \(stats.totalKcal) kcal
+        - Protein: \(stats.totalProtein)g (\(Int((stats.proteinPctOfCals * 100).rounded()))% of cals)
+        - Carbs:   \(stats.totalCarbs)g (\(Int((stats.carbsPctOfCals * 100).rounded()))% of cals)
+        - Fat:     \(stats.totalFat)g (\(Int((stats.fatPctOfCals * 100).rounded()))% of cals)
+        - Avg meal quality: \(stats.avgQuality)/100
+        - Meals logged: \(stats.meals.count)
+
+        Per-meal breakdown:
+        \(mealLines.isEmpty ? "(no meals logged)" : mealLines)
+
+        Write a concise recap (3–5 sentences) of how the day went, then give 2–3 specific next-step suggestions as a short bulleted list. Be supportive and concrete — name actual foods or swaps when you can. Do NOT use markdown headers, code blocks, or asterisks. Plain text only, with "•" for bullets.\(langInstruction)
+        """
+
+        let userContent: [[String: Any]] = [["type": "text", "text": prompt]]
+
+        let requestBody: [String: Any] = [
+            "model": "claude-opus-4-7",
+            "max_tokens": 600,
+            "messages": [["role": "user", "content": userContent]]
+        ]
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        request.timeoutInterval = 30
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AnalysisError.invalidResponse
+        }
+        guard httpResponse.statusCode == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw AnalysisError.httpError(httpResponse.statusCode, body)
+        }
+
+        let claudeResponse = try JSONDecoder().decode(ClaudeResponse.self, from: data)
+        guard let text = claudeResponse.content.first(where: { $0.type == "text" })?.text else {
+            throw AnalysisError.noText
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func refineFood(base: LoggedMeal,
                     additions: String,
                     apiKey: String,

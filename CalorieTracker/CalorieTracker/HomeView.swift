@@ -15,6 +15,7 @@ struct HomeView: View {
     @State private var showAchievements = false
     @State private var selectedLogged: LoggedMeal?
     @State private var showBurnedSheet = false
+    @State private var showNutritionSummary = false
 
     private var dateString: String {
         let f = DateFormatter()
@@ -45,6 +46,9 @@ struct HomeView: View {
             BurnedSheetView()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showNutritionSummary) {
+            NutritionSummarySheet()
         }
         .refreshable {
             if appState.healthKitAuthorized { await appState.refreshHealth() }
@@ -202,35 +206,47 @@ struct HomeView: View {
     var qualityCardCompact: some View {
         let avg = appState.avgQualityToday
         let qc = qualityColor(avg)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("NUTRITION SCORE")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.tertiary)
-                .tracking(0.6)
+        return Button {
+            showNutritionSummary = true
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 4) {
+                    Text("NUTRITION SCORE")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .tracking(0.6)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
 
-            QualityRingView(value: avg, size: 76, strokeW: 8)
+                QualityRingView(value: avg, size: 76, strokeW: 8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 2)
+
+                HStack(spacing: 5) {
+                    Circle().fill(qc).frame(width: 5, height: 5)
+                    Text(appState.todayMeals.isEmpty ? "Log a meal" : qualityLabel(avg))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(qc)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .padding(.vertical, 3)
+                .padding(.horizontal, 9)
+                .background(Capsule().fill(qc.opacity(0.13)))
                 .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 2)
 
-            HStack(spacing: 5) {
-                Circle().fill(qc).frame(width: 5, height: 5)
-                Text(appState.todayMeals.isEmpty ? "Log a meal" : qualityLabel(avg))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(qc)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 3)
-            .padding(.horizontal, 9)
-            .background(Capsule().fill(qc.opacity(0.13)))
-            .frame(maxWidth: .infinity, alignment: .center)
-
-            Spacer(minLength: 0)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: 156)
+            .contentShape(Rectangle())
+            .cardStyle()
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 156)
-        .cardStyle()
+        .buttonStyle(.plain)
     }
 
     // MARK: Meals list
