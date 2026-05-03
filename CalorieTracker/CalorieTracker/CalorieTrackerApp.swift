@@ -142,13 +142,29 @@ final class AppState: ObservableObject {
         async let burned = healthKit.todayActiveEnergyKcal()
         async let workouts = healthKit.todayWorkouts()
         let (b, w) = await (burned, workouts)
-        // Some sources only write workout totals (no per-minute active-
-        // energy samples), so the active-energy query can come back lower
-        // than the workouts list. Use the larger of the two to make sure
-        // the headline never reads less than what's visible below it.
+
         let workoutSum = w.map(\.kcal).reduce(0, +)
-        caloriesBurnedToday = Swift.max(b, workoutSum)
-        activitiesToday = w
+        // Non-workout active energy: walking, standing, daily NEAT.
+        // It's whatever the active-energy query reports beyond what the
+        // workouts already account for.
+        let other = max(0, b - workoutSum)
+
+        var tiles = w
+        if other > 0 {
+            tiles.append(Activity(
+                id: (w.map(\.id).max() ?? -1) + 1,
+                type: "Daily activity",
+                emoji: "🚶",
+                kcal: other,
+                duration: ""
+            ))
+        }
+        activitiesToday = tiles
+
+        // Headline is the sum of what's now visible — guaranteed to
+        // equal the user's pen-and-paper total of the tiles below it.
+        caloriesBurnedToday = workoutSum + other
+
         if caloriesBurnedToday >= 500 { activeDays = max(activeDays, 1) }
 
         if weightFromHealth {
@@ -233,7 +249,7 @@ final class AppState: ObservableObject {
         let cal = Calendar.current
         return loggedMeals
             .filter { cal.isDateInToday($0.timestamp) }
-            .sorted { $0.timestamp < $1.timestamp }
+            .sorted { $0.timestamp > $1.timestamp }
             .map { $0.asMeal }
     }
 
