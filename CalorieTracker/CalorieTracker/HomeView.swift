@@ -14,7 +14,7 @@ struct HomeView: View {
 
     @State private var showAchievements = false
     @State private var selectedLogged: LoggedMeal?
-    @State private var showActivityCard = false
+    @State private var showBurnedSheet = false
 
     private var dateString: String {
         let f = DateFormatter()
@@ -30,7 +30,6 @@ struct HomeView: View {
                 ringSection
                 macroSection
                 qualitySection
-                activitySection
                 mealsSection
             }
             .padding(.bottom, 110)
@@ -42,6 +41,11 @@ struct HomeView: View {
         }
         .sheet(item: $selectedLogged) { lm in
             MealDetailView(meal: lm)
+        }
+        .sheet(isPresented: $showBurnedSheet) {
+            BurnedSheetView()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .refreshable {
             if appState.healthKitAuthorized { await appState.refreshHealth() }
@@ -141,18 +145,16 @@ struct HomeView: View {
                 }
                 if appState.caloriesBurnedToday > 0 {
                     Button {
-                        withAnimation(.spring(duration: 0.3)) {
-                            showActivityCard.toggle()
-                        }
+                        showBurnedSheet = true
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 10, weight: .semibold))
                             Text("+\(appState.caloriesBurnedToday) burned")
                                 .font(.system(size: 12, weight: .semibold))
-                            Image(systemName: "chevron.down")
+                            Image(systemName: "chevron.right")
                                 .font(.system(size: 9, weight: .semibold))
-                                .rotationEffect(.degrees(showActivityCard ? 180 : 0))
+                                .opacity(0.7)
                         }
                         .foregroundColor(accentOrange)
                         .padding(.vertical, 7)
@@ -188,26 +190,6 @@ struct HomeView: View {
         FoodQualityCardView(meals: appState.todayMeals)
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
-    }
-
-    // MARK: Activity (under quality, per request)
-
-    @ViewBuilder
-    var activitySection: some View {
-        if showActivityCard && appState.caloriesBurnedToday > 0 {
-            ActivityCardView(
-                burned: appState.caloriesBurnedToday,
-                activities: appState.activitiesToday,
-                connected: appState.healthKitAuthorized,
-                onConnect: { Task { await appState.enableHealthKit() } }
-            )
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .move(edge: .top)),
-                removal:   .opacity.combined(with: .move(edge: .top))
-            ))
-        }
     }
 
     // MARK: Meals list
@@ -792,5 +774,146 @@ struct MealRowView: View {
             }
         }
         .padding(.vertical, 10)
+    }
+}
+
+// MARK: - BurnedSheetView
+
+struct BurnedSheetView: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) var dismiss
+    @State private var refreshing = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .lastTextBaseline) {
+                Text("Calories burned")
+                    .font(.system(size: 20, weight: .bold))
+                    .tracking(-0.4)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 18)
+
+            VStack(spacing: 8) {
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(accentOrange)
+                    Text("\(appState.caloriesBurnedToday)")
+                        .font(.system(size: 64, weight: .bold))
+                        .tracking(-2.4)
+                        .monospacedDigit()
+                    Text("kcal")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                if appState.healthKitAuthorized {
+                    HStack(spacing: 5) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 9))
+                            .foregroundColor(Color(hex: "FF375F"))
+                        Text("FROM APPLE HEALTH")
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(0.6)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4).padding(.horizontal, 10)
+                    .background(Capsule().fill(Color(UIColor.tertiarySystemBackground)))
+                }
+            }
+            .padding(.vertical, 20)
+
+            ScrollView {
+                if appState.activitiesToday.isEmpty {
+                    Text("No activity recorded yet today.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 12)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(appState.activitiesToday) { act in
+                            BurnRowView(activity: act)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
+                }
+            }
+
+            Button {
+                Task {
+                    refreshing = true
+                    await appState.refreshHealth()
+                    refreshing = false
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    if refreshing {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    Text(refreshing ? "Refreshing…" : "Refresh from Apple Health")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(accentOrange)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .shadow(color: accentOrange.opacity(0.3), radius: 10, y: 3)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+            .disabled(refreshing || !appState.healthKitAuthorized)
+        }
+    }
+}
+
+struct BurnRowView: View {
+    let activity: Activity
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.tertiarySystemBackground))
+                    .frame(width: 44, height: 44)
+                Text(activity.emoji).font(.system(size: 22))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(activity.type)
+                    .font(.system(size: 14, weight: .semibold))
+                if !activity.duration.isEmpty {
+                    Text(activity.duration)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer()
+            HStack(alignment: .lastTextBaseline, spacing: 1) {
+                Text("\(activity.kcal)")
+                    .font(.system(size: 18, weight: .bold))
+                    .tracking(-0.4)
+                    .monospacedDigit()
+                Text("kcal")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(UIColor.secondarySystemBackground))
+                .overlay(RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1))
+        )
     }
 }
