@@ -776,7 +776,11 @@ struct ProfileView: View {
                     }
                 }
 
-                appleSignInBlock
+                // Sign in with Apple requires a paid Apple Developer
+                // Program membership; the entitlement is currently
+                // disabled. Re-enable both the entitlement and this
+                // line once you have one:
+                // appleSignInBlock
 
                 ProfileSection(label: "Health") {
                     ProfileRow(
