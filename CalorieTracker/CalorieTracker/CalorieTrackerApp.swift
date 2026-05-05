@@ -37,6 +37,18 @@ final class AppState: ObservableObject {
     @AppStorage("weightFromHealth")     var weightFromHealth: Bool = false
     @AppStorage("appLanguage")          private(set) var appLanguageRaw: String = AppLanguage.system.rawValue
 
+    @AppStorage("appleUserId") var appleUserId: String = ""
+    @AppStorage("appleEmail")  var appleEmail: String = ""
+
+    var isSignedInWithApple: Bool {
+        !appleUserId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    func signOutApple() {
+        appleUserId = ""
+        appleEmail = ""
+    }
+
     var appLanguage: AppLanguage {
         AppLanguage(rawValue: appLanguageRaw) ?? .system
     }
