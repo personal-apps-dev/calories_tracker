@@ -113,20 +113,36 @@ struct WeightEntry: Codable, Identifiable, Hashable {
     }
 
     private static let storeKey = "weightEntries.v1"
+    private static var fileURL: URL {
+        documentsURL().appendingPathComponent("weightEntries.v1.json")
+    }
 
     static func loadAll() -> [WeightEntry] {
-        guard let data = UserDefaults.standard.data(forKey: storeKey),
-              let arr = try? JSONDecoder().decode([WeightEntry].self, from: data) else {
-            return []
+        // Prefer the on-disk JSON; fall back to UserDefaults for older
+        // installs that only persisted there.
+        if let data = try? Data(contentsOf: fileURL),
+           let arr = try? JSONDecoder().decode([WeightEntry].self, from: data) {
+            return arr.sorted { $0.date < $1.date }
         }
-        return arr.sorted { $0.date < $1.date }
+        if let data = UserDefaults.standard.data(forKey: storeKey),
+           let arr = try? JSONDecoder().decode([WeightEntry].self, from: data) {
+            return arr.sorted { $0.date < $1.date }
+        }
+        return []
     }
 
     static func saveAll(_ entries: [WeightEntry]) {
-        if let data = try? JSONEncoder().encode(entries) {
-            UserDefaults.standard.set(data, forKey: storeKey)
-        }
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        try? data.write(to: fileURL, options: .atomic)
+        UserDefaults.standard.set(data, forKey: storeKey)
     }
+}
+
+// MARK: - Documents helper
+
+func documentsURL() -> URL {
+    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        ?? URL(fileURLWithPath: NSTemporaryDirectory())
 }
 
 // MARK: - LoggedMeal (persisted)
@@ -220,19 +236,29 @@ struct LoggedMeal: Codable, Identifiable {
     }
 
     private static let storeKey = "loggedMeals.v1"
+    private static var fileURL: URL {
+        documentsURL().appendingPathComponent("loggedMeals.v1.json")
+    }
 
     static func loadAll() -> [LoggedMeal] {
-        guard let data = UserDefaults.standard.data(forKey: storeKey),
-              let arr = try? JSONDecoder().decode([LoggedMeal].self, from: data) else {
-            return []
+        // Prefer the on-disk JSON file (more durable across Xcode
+        // reinstalls than UserDefaults); fall back to UserDefaults for
+        // older installs that only persisted there.
+        if let data = try? Data(contentsOf: fileURL),
+           let arr = try? JSONDecoder().decode([LoggedMeal].self, from: data) {
+            return arr
         }
-        return arr
+        if let data = UserDefaults.standard.data(forKey: storeKey),
+           let arr = try? JSONDecoder().decode([LoggedMeal].self, from: data) {
+            return arr
+        }
+        return []
     }
 
     static func saveAll(_ meals: [LoggedMeal]) {
-        if let data = try? JSONEncoder().encode(meals) {
-            UserDefaults.standard.set(data, forKey: storeKey)
-        }
+        guard let data = try? JSONEncoder().encode(meals) else { return }
+        try? data.write(to: fileURL, options: .atomic)
+        UserDefaults.standard.set(data, forKey: storeKey)
     }
 }
 
