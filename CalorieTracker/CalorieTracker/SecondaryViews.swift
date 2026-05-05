@@ -717,6 +717,7 @@ struct ProfileView: View {
     @State private var showRestartHint = false
     @State private var showHeightEditor = false
     @State private var heightDraft = ""
+    @State private var showAppleSignOutConfirm = false
 
     private var healthValue: String {
         if !appState.healthKit.isAvailable { return "Unavailable" }
@@ -774,6 +775,8 @@ struct ProfileView: View {
                         appState.notificationsEnabled.toggle()
                     }
                 }
+
+                appleSignInBlock
 
                 ProfileSection(label: "Health") {
                     ProfileRow(
@@ -854,6 +857,14 @@ struct ProfileView: View {
         } message: {
             Text("AI responses already use the new language. Force-quit the app and reopen it to switch the interface.")
         }
+        .alert("Sign out of Apple ID?", isPresented: $showAppleSignOutConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Sign out", role: .destructive) {
+                appState.signOutApple()
+            }
+        } message: {
+            Text("Your meals and settings on this device are kept. You'll need to sign in again to re-link an Apple ID.")
+        }
         .alert("Height", isPresented: $showHeightEditor) {
             TextField("Height in cm", text: $heightDraft)
                 .keyboardType(.numberPad)
@@ -877,6 +888,40 @@ struct ProfileView: View {
             }
         } message: {
             Text("This is shown on the Home screen.")
+        }
+    }
+
+    @ViewBuilder
+    var appleSignInBlock: some View {
+        if appState.isSignedInWithApple {
+            ProfileSection(label: "Sign in") {
+                ProfileRow(
+                    icon: "🍎",
+                    label: "Apple ID",
+                    value: appState.appleEmail.isEmpty ? "Connected" : appState.appleEmail,
+                    isLast: true
+                ) {
+                    showAppleSignOutConfirm = true
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("SIGN IN")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.6)
+                    .padding(.horizontal, 28)
+
+                AppleSignInButton()
+                    .padding(.horizontal, 24)
+
+                Text("Connect your Apple ID to auto-fill your name. Your meals and settings stay on this device.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 28)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 18)
         }
     }
 
