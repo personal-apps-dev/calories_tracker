@@ -16,6 +16,15 @@ struct HomeView: View {
     @State private var selectedLogged: LoggedMeal?
     @State private var showBurnedSheet = false
     @State private var showNutritionSummary = false
+    @State private var displayDate: Date = Date()
+
+    private var isToday: Bool { Calendar.current.isDateInToday(displayDate) }
+
+    private var displayedMeals: [Meal] { appState.meals(on: displayDate) }
+    private var displayedLoggedMeals: [LoggedMeal] { appState.loggedMeals(on: displayDate) }
+    private var displayedConsumed: Int { appState.consumedKcal(on: displayDate) }
+    private var displayedAvgQuality: Int { appState.avgQuality(on: displayDate) }
+    private var displayedEffectiveGoal: Int { appState.effectiveGoal(on: displayDate) }
 
     private var dateString: String {
         let f = DateFormatter()
@@ -28,6 +37,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 streakPill
+                dayPicker
                 ringSection
                 macroAndQualityRow
                 mealsSection
@@ -122,13 +132,84 @@ struct HomeView: View {
         .padding(.bottom, 18)
     }
 
+    // MARK: Day picker
+
+    var dayPicker: some View {
+        let canGoForward = !isToday
+        let dayLabel: String = {
+            if isToday { return "Today" }
+            if Calendar.current.isDateInYesterday(displayDate) { return "Yesterday" }
+            let f = DateFormatter()
+            f.dateFormat = "EEEE"
+            return f.string(from: displayDate)
+        }()
+        let subLabel: String = {
+            let f = DateFormatter()
+            f.dateFormat = "MMM d"
+            return f.string(from: displayDate)
+        }()
+        return HStack(spacing: 14) {
+            Button {
+                if let prev = Calendar.current.date(byAdding: .day, value: -1, to: displayDate) {
+                    withAnimation(.easeInOut(duration: 0.2)) { displayDate = prev }
+                }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                    )
+            }
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { displayDate = Date() }
+            } label: {
+                VStack(spacing: 1) {
+                    Text(dayLabel)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text(subLabel)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .frame(minWidth: 110)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                guard canGoForward,
+                      let next = Calendar.current.date(byAdding: .day, value: 1, to: displayDate)
+                else { return }
+                withAnimation(.easeInOut(duration: 0.2)) { displayDate = next }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(canGoForward ? .secondary : .tertiary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                    )
+            }
+            .disabled(!canGoForward)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 12)
+    }
+
     // MARK: Ring + goal button
 
     var ringSection: some View {
         VStack(spacing: 10) {
             CalorieRingView(
-                consumed: appState.todayConsumedKcal,
-                goal: appState.effectiveGoalToday
+                consumed: displayedConsumed,
+                goal: displayedEffectiveGoal
             )
             HStack(spacing: 8) {
                 Button(action: { showGoalSheet = true }) {
@@ -146,7 +227,10 @@ struct HomeView: View {
                             .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
                 }
-                if appState.caloriesBurnedToday > 0 {
+                .disabled(!isToday)
+                .opacity(isToday ? 1 : 0.6)
+
+                if isToday && appState.caloriesBurnedToday > 0 {
                     Button {
                         showBurnedSheet = true
                     } label: {
@@ -191,9 +275,9 @@ struct HomeView: View {
                 .foregroundStyle(.tertiary)
                 .tracking(0.6)
             VStack(spacing: 9) {
-                CompactMacroRow(label: "Protein", stat: appState.todayProteinStat, color: Color(hex: "5B8DEF"))
-                CompactMacroRow(label: "Carbs",   stat: appState.todayCarbsStat,   color: Color(hex: "F4B740"))
-                CompactMacroRow(label: "Fat",     stat: appState.todayFatStat,     color: Color(hex: "E86A6A"))
+                CompactMacroRow(label: "Protein", stat: appState.proteinStat(on: displayDate), color: Color(hex: "5B8DEF"))
+                CompactMacroRow(label: "Carbs",   stat: appState.carbsStat(on: displayDate),   color: Color(hex: "F4B740"))
+                CompactMacroRow(label: "Fat",     stat: appState.fatStat(on: displayDate),     color: Color(hex: "E86A6A"))
             }
             Spacer(minLength: 0)
         }
@@ -204,7 +288,7 @@ struct HomeView: View {
     }
 
     var qualityCardCompact: some View {
-        let avg = appState.avgQualityToday
+        let avg = displayedAvgQuality
         let qc = qualityColor(avg)
         return Button {
             showNutritionSummary = true
@@ -227,7 +311,7 @@ struct HomeView: View {
 
                 HStack(spacing: 5) {
                     Circle().fill(qc).frame(width: 5, height: 5)
-                    Text(appState.todayMeals.isEmpty ? "Log a meal" : qualityLabel(avg))
+                    Text(displayedMeals.isEmpty ? "Log a meal" : qualityLabel(avg))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(qc)
                         .lineLimit(1)
@@ -254,23 +338,23 @@ struct HomeView: View {
     var mealsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Today's meals")
+                Text(isToday ? "Today's meals" : "Meals on this day")
                     .font(.system(size: 18, weight: .bold))
                     .tracking(-0.4)
                 Spacer()
-                if !appState.todayMeals.isEmpty {
-                    Text("\(appState.todayMeals.count) logged")
+                if !displayedMeals.isEmpty {
+                    Text("\(displayedMeals.count) logged")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(accentOrange)
                 }
             }
             .padding(.horizontal, 24)
 
-            if appState.todayMeals.isEmpty {
+            if displayedMeals.isEmpty {
                 emptyMealsCard
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(appState.todayMeals.enumerated()), id: \.offset) { i, meal in
+                    ForEach(Array(displayedMeals.enumerated()), id: \.offset) { i, meal in
                         Button {
                             if let lm = appState.loggedMeals.first(where: { $0.id.hashValue == meal.id }) {
                                 selectedLogged = lm
@@ -280,7 +364,7 @@ struct HomeView: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        if i < appState.todayMeals.count - 1 {
+                        if i < displayedMeals.count - 1 {
                             Divider().padding(.leading, 60)
                         }
                     }
@@ -295,11 +379,13 @@ struct HomeView: View {
 
     var emptyMealsCard: some View {
         VStack(spacing: 8) {
-            Text("📷")
+            Text(isToday ? "📷" : "📅")
                 .font(.system(size: 32))
-            Text("No meals logged today")
+            Text(isToday ? "No meals logged today" : "Nothing logged on this day")
                 .font(.system(size: 14, weight: .semibold))
-            Text("Tap the camera button below to snap a meal and have it analyzed.")
+            Text(isToday
+                 ? "Tap the camera button below to snap a meal and have it analyzed."
+                 : "Browse other days with the arrows above, or jump back to Today.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

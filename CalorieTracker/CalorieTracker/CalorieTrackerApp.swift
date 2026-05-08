@@ -265,6 +265,76 @@ final class AppState: ObservableObject {
             .map { $0.asMeal }
     }
 
+    // MARK: Day-scoped queries (any date)
+
+    func loggedMeals(on date: Date) -> [LoggedMeal] {
+        let cal = Calendar.current
+        return loggedMeals
+            .filter { cal.isDate($0.timestamp, inSameDayAs: date) }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    func meals(on date: Date) -> [Meal] {
+        loggedMeals(on: date).map { $0.asMeal }
+    }
+
+    func consumedKcal(on date: Date) -> Int {
+        loggedMeals(on: date).map(\.kcal).reduce(0, +)
+    }
+
+    func proteinStat(on date: Date) -> MacroStat {
+        MacroStat(grams: loggedMeals(on: date).map(\.protein).reduce(0, +), goal: 140)
+    }
+
+    func carbsStat(on date: Date) -> MacroStat {
+        MacroStat(grams: loggedMeals(on: date).map(\.carbs).reduce(0, +), goal: 240)
+    }
+
+    func fatStat(on date: Date) -> MacroStat {
+        MacroStat(grams: loggedMeals(on: date).map(\.fat).reduce(0, +), goal: 75)
+    }
+
+    func avgQuality(on date: Date) -> Int {
+        let m = loggedMeals(on: date)
+        guard !m.isEmpty else { return 0 }
+        return m.map(\.quality).reduce(0, +) / m.count
+    }
+
+    func effectiveGoal(on date: Date) -> Int {
+        let burn = Calendar.current.isDateInToday(date) ? caloriesBurnedToday : 0
+        return goal + burn
+    }
+
+    /// Manually edit a logged meal's fields without re-running Claude.
+    /// Quality is recomputed from the new macros.
+    func editMeal(id: UUID,
+                  name: String,
+                  type: String,
+                  kcal: Int,
+                  protein: Int,
+                  carbs: Int,
+                  fat: Int) {
+        guard let idx = loggedMeals.firstIndex(where: { $0.id == id }) else { return }
+        let original = loggedMeals[idx]
+        let quality = estimateQuality(kcal: kcal, protein: protein, carbs: carbs, fat: fat)
+        let updated = LoggedMeal(
+            id: original.id,
+            timestamp: original.timestamp,
+            type: type,
+            emoji: mealEmojiFor(name: name, type: type),
+            name: name,
+            kcal: kcal,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
+            quality: quality,
+            items: original.items
+        )
+        loggedMeals[idx] = updated
+        LoggedMeal.saveAll(loggedMeals)
+        updateDailyAchievementsCounters()
+    }
+
     var todayConsumedKcal: Int { todayMeals.map(\.kcal).reduce(0, +) }
 
     var todayProteinG: Int {
