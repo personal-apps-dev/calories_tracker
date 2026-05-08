@@ -60,27 +60,34 @@ struct MealDetailView: View {
                         .foregroundColor(.primary)
                 }
             }
-            .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .refine:
-                    RefineMealSheet(base: live)
-                case .edit:
-                    EditMealSheet(base: live)
-                case .schedule:
-                    ScheduleMealSheet(base: live)
-                        .presentationDetents([.medium, .large])
-                        .presentationDragIndicator(.visible)
-                }
+        }
+        // Sheet + alert attached to the *root* of body, not inside the
+        // NavigationStack. iOS 16/17 has a quirk where a sheet attached
+        // inside a NavigationStack that itself sits inside a parent
+        // sheet can dismiss the parent on present — the activeSheet
+        // change there propagates as a dismissal. Hoisting this up
+        // to the body root makes the inner presentation independent
+        // and keeps MealDetailView on screen behind it.
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .refine:
+                RefineMealSheet(base: live)
+            case .edit:
+                EditMealSheet(base: live)
+            case .schedule:
+                ScheduleMealSheet(base: live)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
-            .alert("Delete this meal?", isPresented: $showDeleteConfirm) {
-                Button("Cancel", role: .cancel) {}
-                Button("Delete", role: .destructive) {
-                    appState.deleteMeal(id: live.id)
-                    dismiss()
-                }
-            } message: {
-                Text("This removes \(live.kcal) kcal from today's totals. You can't undo this.")
+        }
+        .alert("Delete this meal?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                appState.deleteMeal(id: live.id)
+                dismiss()
             }
+        } message: {
+            Text("This removes \(live.kcal) kcal from today's totals. You can't undo this.")
         }
     }
 
