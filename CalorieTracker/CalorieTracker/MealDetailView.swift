@@ -5,9 +5,14 @@ struct MealDetailView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var appState: AppState
 
-    @State private var showRefine = false
-    @State private var showEdit = false
-    @State private var showSchedule = false
+    /// Single sheet selector — SwiftUI gets unreliable when multiple
+    /// `.sheet(isPresented:)` modifiers stack on one view, so we route
+    /// all child sheets through one `.sheet(item:)`.
+    private enum ActiveSheet: String, Identifiable {
+        case refine, edit, schedule
+        var id: String { rawValue }
+    }
+    @State private var activeSheet: ActiveSheet?
     @State private var showDeleteConfirm = false
 
     /// Latest version of the meal from AppState, in case it was edited
@@ -55,16 +60,17 @@ struct MealDetailView: View {
                         .foregroundColor(.primary)
                 }
             }
-            .sheet(isPresented: $showRefine) {
-                RefineMealSheet(base: live)
-            }
-            .sheet(isPresented: $showEdit) {
-                EditMealSheet(base: live)
-            }
-            .sheet(isPresented: $showSchedule) {
-                ScheduleMealSheet(base: live)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .refine:
+                    RefineMealSheet(base: live)
+                case .edit:
+                    EditMealSheet(base: live)
+                case .schedule:
+                    ScheduleMealSheet(base: live)
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                }
             }
             .alert("Delete this meal?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {}
@@ -126,7 +132,7 @@ struct MealDetailView: View {
     var actionsCard: some View {
         VStack(spacing: 8) {
             Button {
-                showRefine = true
+                activeSheet = .refine
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.bubble.fill")
@@ -142,7 +148,7 @@ struct MealDetailView: View {
             }
 
             Button {
-                showSchedule = true
+                activeSheet = .schedule
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
@@ -161,7 +167,7 @@ struct MealDetailView: View {
             }
 
             Button {
-                showEdit = true
+                activeSheet = .edit
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "pencil")
