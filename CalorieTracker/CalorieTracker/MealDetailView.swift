@@ -7,6 +7,7 @@ struct MealDetailView: View {
 
     @State private var showRefine = false
     @State private var showEdit = false
+    @State private var showSchedule = false
     @State private var showDeleteConfirm = false
 
     /// Latest version of the meal from AppState, in case it was edited
@@ -36,6 +37,7 @@ struct MealDetailView: View {
                         ingredientsCard
                     }
                     scoreCard
+                    feelingCard
                     factorsCard
                     actionsCard
                 }
@@ -59,6 +61,11 @@ struct MealDetailView: View {
             .sheet(isPresented: $showEdit) {
                 EditMealSheet(base: live)
             }
+            .sheet(isPresented: $showSchedule) {
+                ScheduleMealSheet(base: live)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
             .alert("Delete this meal?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {}
                 Button("Delete", role: .destructive) {
@@ -69,6 +76,49 @@ struct MealDetailView: View {
                 Text("This removes \(live.kcal) kcal from today's totals. You can't undo this.")
             }
         }
+    }
+
+    // MARK: Feeling rating
+
+    var feelingCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionLabel("💭 How did this meal make you feel?")
+
+            HStack(spacing: 10) {
+                ForEach([(1, "😩"), (2, "😕"), (3, "😐"), (4, "🙂"), (5, "⚡")], id: \.0) { rating, emoji in
+                    let isPicked = (live.feelingRating == rating)
+                    Button {
+                        appState.setFeelingRating(isPicked ? nil : rating, for: live.id)
+                    } label: {
+                        Text(emoji)
+                            .font(.system(size: 26))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(isPicked
+                                          ? accentOrange.opacity(0.18)
+                                          : Color(UIColor.tertiarySystemBackground))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(isPicked ? accentOrange : Color.primary.opacity(0.06), lineWidth: 1.5)
+                                    )
+                            )
+                            .saturation(isPicked || live.feelingRating == nil ? 1 : 0.4)
+                            .opacity(isPicked || live.feelingRating == nil ? 1 : 0.55)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("Tap how you felt 1–2 hours after eating. Over time we'll show which meals leave you feeling best.")
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
     }
 
     // MARK: Actions
@@ -89,6 +139,25 @@ struct MealDetailView: View {
                 .background(accentOrange)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .shadow(color: accentOrange.opacity(0.35), radius: 10, y: 3)
+            }
+
+            Button {
+                showSchedule = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                    Text("Schedule for later")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.tertiarySystemBackground))
+                        .overlay(RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                )
             }
 
             Button {
@@ -690,3 +759,162 @@ struct EditMealSheet: View {
         dismiss()
     }
 }
+
+// MARK: - ScheduleMealSheet
+
+struct ScheduleMealSheet: View {
+    let base: LoggedMeal
+
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) var dismiss
+    @State private var selected: Set<DateOnly> = []
+
+    /// Hashable wrapper for a calendar day (start-of-day) so we can
+    /// store picked days in a Set.
+    struct DateOnly: Hashable {
+        let date: Date
+        init(_ d: Date) {
+            self.date = Calendar.current.startOfDay(for: d)
+        }
+    }
+
+    private let cal = Calendar.current
+
+    /// Two weeks of dates starting today.
+    private var upcoming: [Date] {
+        let start = cal.startOfDay(for: Date())
+        return (0..<14).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    private var canSave: Bool { !selected.isEmpty }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Header showing the meal being scheduled
+                HStack(spacing: 12) {
+                    Text(base.emoji).font(.system(size: 28))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(base.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .lineLimit(1)
+                        Text("\(base.kcal) kcal · \(base.type)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardStyle(radius: 14)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+
+                Text("Pick the days to plan this meal — tap again to deselect. We'll show it on those days for you to confirm.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                        ForEach(upcoming, id: \.self) { day in
+                            DayChip(
+                                date: day,
+                                isToday: cal.isDateInToday(day),
+                                isSelected: selected.contains(DateOnly(day))
+                            ) {
+                                let key = DateOnly(day)
+                                if selected.contains(key) {
+                                    selected.remove(key)
+                                } else {
+                                    selected.insert(key)
+                                }
+                            }
+                        }
+                    }
+                    .padding(20)
+                }
+
+                Button {
+                    appState.scheduleMeal(from: base, onDates: selected.map(\.date))
+                    dismiss()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.plus")
+                        Text(selected.count <= 1
+                             ? "Schedule"
+                             : "Schedule on \(selected.count) days")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(canSave ? accentOrange : Color.secondary.opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: canSave ? accentOrange.opacity(0.35) : .clear, radius: 10, y: 3)
+                }
+                .disabled(!canSave)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+            .navigationTitle("Schedule meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct DayChip: View {
+    let date: Date
+    let isToday: Bool
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    private var weekday: String {
+        let f = DateFormatter(); f.dateFormat = "EEE"
+        return f.string(from: date)
+    }
+    private var day: String {
+        let f = DateFormatter(); f.dateFormat = "d"
+        return f.string(from: date)
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 2) {
+                Text(weekday)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(isSelected ? .white : .secondary)
+                    .tracking(0.4)
+                    .textCase(.uppercase)
+                Text(day)
+                    .font(.system(size: 18, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundColor(isSelected ? .white : .primary)
+                if isToday {
+                    Text("today")
+                        .font(.system(size: 9))
+                        .foregroundColor(isSelected ? .white.opacity(0.85) : .tertiary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 64)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? accentOrange : Color(UIColor.secondarySystemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? accentOrange : Color.primary.opacity(0.08), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+

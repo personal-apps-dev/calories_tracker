@@ -345,6 +345,12 @@ struct HomeView: View {
 
     var mealsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
+            let scheduled = appState.scheduledMeals(on: displayDate)
+
+            if !scheduled.isEmpty && (isToday || displayDate >= Calendar.current.startOfDay(for: Date())) {
+                plannedMealsBlock(scheduled)
+            }
+
             HStack {
                 Text(isToday ? "Today's meals" : "Meals on this day")
                     .font(.system(size: 18, weight: .bold))
@@ -383,6 +389,39 @@ struct HomeView: View {
                 .padding(.horizontal, 24)
             }
         }
+    }
+
+    @ViewBuilder
+    func plannedMealsBlock(_ scheduled: [ScheduledMeal]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(accentOrange)
+                Text("PLANNED")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(accentOrange)
+                    .tracking(0.6)
+                Text("\(scheduled.count) meal\(scheduled.count == 1 ? "" : "s")")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+
+            VStack(spacing: 8) {
+                ForEach(scheduled) { sm in
+                    PlannedMealRow(
+                        scheduled: sm,
+                        canLog: isToday,
+                        onLog: { appState.confirmScheduledMeal(id: sm.id) },
+                        onRemove: { appState.removeScheduledMeal(id: sm.id) }
+                    )
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+        .padding(.bottom, 12)
     }
 
     var emptyMealsCard: some View {
@@ -1132,6 +1171,82 @@ struct BurnRowView: View {
                 .fill(Color(UIColor.secondarySystemBackground))
                 .overlay(RoundedRectangle(cornerRadius: 14)
                     .stroke(Color.primary.opacity(0.06), lineWidth: 1))
+        )
+    }
+}
+
+// MARK: - PlannedMealRow
+
+struct PlannedMealRow: View {
+    let scheduled: ScheduledMeal
+    let canLog: Bool        // only allow logging on today
+    let onLog: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(
+                        colors: gradientFor(type: scheduled.type),
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 40, height: 40)
+                Text(scheduled.emoji).font(.system(size: 20))
+            }
+            .opacity(0.55)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(scheduled.type.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .tracking(0.5)
+                Text(scheduled.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                Text("\(scheduled.kcal) kcal · planned")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+            }
+
+            Spacer(minLength: 4)
+
+            HStack(spacing: 6) {
+                if canLog {
+                    Button(action: onLog) {
+                        Text("Log")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 7)
+                            .padding(.horizontal, 12)
+                            .background(Capsule().fill(accentOrange))
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button(action: onRemove) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            Circle().fill(Color(UIColor.tertiarySystemBackground))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(UIColor.secondarySystemBackground).opacity(0.6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                        )
+                        .foregroundStyle(.secondary.opacity(0.35))
+                )
         )
     }
 }
