@@ -162,7 +162,7 @@ struct DayCardView: View {
             Circle()
                 .trim(from: 0, to: pct)
                 .stroke(
-                    over ? Color(hex: "E86A6A") : accentOrange,
+                    over ? Color.niboRed : accentOrange,
                     style: StrokeStyle(lineWidth: 4, lineCap: .round)
                 )
                 .frame(width: 44, height: 44)
@@ -184,7 +184,7 @@ struct DayCardView: View {
             HStack(spacing: 2) {
                 Text(day.consumed.formatted(.number))
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(over ? Color(hex: "E86A6A") : .primary)
+                    .foregroundColor(over ? Color.niboRed : .primary)
                 Text("/ \(effectiveGoal.formatted(.number)) kcal · \(day.mealCount) meals")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
@@ -383,9 +383,9 @@ struct TrendsView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                 ForEach([
-                    ("Protein", pPct, Color(hex: "5B8DEF")),
-                    ("Carbs",   cPct, Color(hex: "F4B740")),
-                    ("Fat",     fPct, Color(hex: "E86A6A")),
+                    ("Protein", pPct, Color.niboForest),
+                    ("Carbs",   cPct, Color.niboMustard),
+                    ("Fat",     fPct, Color.niboRed),
                 ], id: \.0) { label, pct, color in
                     HStack(spacing: 8) {
                         Circle().fill(color).frame(width: 8, height: 8)
@@ -494,7 +494,7 @@ struct TrendsView: View {
                         Text("\(e.consumed.formatted(.number)) kcal")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(e.consumed > appState.goal
-                                             ? Color(hex: "E86A6A") : accentOrange)
+                                             ? Color.niboRed : accentOrange)
                             .monospacedDigit()
                     }
                 }
@@ -647,7 +647,7 @@ struct BarChartView: View {
                         let fraction = val / maxVal
                         let isOver = metric == .calories && e.consumed > goal
                         let baseColor: Color = metric == .calories
-                            ? (isOver ? Color(hex: "E86A6A") : accentOrange)
+                            ? (isOver ? Color.niboRed : accentOrange)
                             : qualityColor(e.quality)
                         let isSelected = selectedIndex == i
                         let isDimmed = (selectedIndex != nil && !isSelected)
@@ -933,7 +933,7 @@ struct ProfileView: View {
         HStack(spacing: 14) {
             Circle()
                 .fill(LinearGradient(
-                    colors: [accentOrange, Color(hex: "5B8DEF")],
+                    colors: [accentOrange, Color.niboForest],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ))
                 .frame(width: 64, height: 64)
@@ -1081,7 +1081,7 @@ struct ProfileRow: View {
 
                 Text(LocalizedStringKey(label))
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isDanger ? Color(hex: "E86A6A") : .primary)
+                    .foregroundColor(isDanger ? Color.niboRed : .primary)
 
                 Spacer()
 
@@ -1395,7 +1395,7 @@ struct WeightSectionView: View {
                                 .font(.system(size: 28, weight: .bold))
                                 .tracking(-0.8)
                                 .monospacedDigit()
-                                .foregroundColor(losing ? Color(hex: "E86A6A") : Color(hex: "3DB46D"))
+                                .foregroundColor(losing ? Color.niboRed : Color.niboForest)
                             Text("kg")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.secondary)
@@ -1458,7 +1458,7 @@ struct WeightSectionView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 11))
-                            .foregroundColor(Color(hex: "FF375F"))
+                            .foregroundColor(Color.niboMustard)
                         Text("Auto-sync from Apple Health")
                             .font(.system(size: 12, weight: .medium))
                     }
