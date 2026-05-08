@@ -136,10 +136,22 @@ struct MealDetailView: View {
 
     // MARK: Actions
 
+    /// Defers the state change a tick so SwiftUI's tap handling and any
+    /// in-flight parent-sheet animations don't collide with the inner
+    /// sheet presentation. Without this, presenting Edit / Refine /
+    /// Schedule from MealDetailView right after a photo log can race
+    /// the photo's fullScreenCover dismissal and make MealDetailView
+    /// itself dismiss instead.
+    private func present(_ sheet: ActiveSheet) {
+        DispatchQueue.main.async {
+            activeSheet = sheet
+        }
+    }
+
     var actionsCard: some View {
         VStack(spacing: 8) {
             Button {
-                activeSheet = .refine
+                present(.refine)
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.bubble.fill")
@@ -155,7 +167,7 @@ struct MealDetailView: View {
             }
 
             Button {
-                activeSheet = .schedule
+                present(.schedule)
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
@@ -174,7 +186,7 @@ struct MealDetailView: View {
             }
 
             Button {
-                activeSheet = .edit
+                present(.edit)
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "pencil")
