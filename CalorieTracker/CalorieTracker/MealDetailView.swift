@@ -6,6 +6,7 @@ struct MealDetailView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var showRefine = false
+    @State private var showEdit = false
     @State private var showDeleteConfirm = false
 
     /// Latest version of the meal from AppState, in case it was edited
@@ -55,6 +56,9 @@ struct MealDetailView: View {
             .sheet(isPresented: $showRefine) {
                 RefineMealSheet(base: live)
             }
+            .sheet(isPresented: $showEdit) {
+                EditMealSheet(base: live)
+            }
             .alert("Delete this meal?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {}
                 Button("Delete", role: .destructive) {
@@ -85,6 +89,25 @@ struct MealDetailView: View {
                 .background(accentOrange)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .shadow(color: accentOrange.opacity(0.35), radius: 10, y: 3)
+            }
+
+            Button {
+                showEdit = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "pencil")
+                    Text("Edit details")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.tertiarySystemBackground))
+                        .overlay(RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1))
+                )
             }
 
             Button(role: .destructive) {
@@ -553,5 +576,117 @@ struct RefineMealSheet: View {
                 isAnalyzing = false
             }
         }
+    }
+}
+
+// MARK: - EditMealSheet
+
+struct EditMealSheet: View {
+    let base: LoggedMeal
+
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) var dismiss
+
+    @State private var name: String = ""
+    @State private var type: String = "Lunch"
+    @State private var kcal: String = ""
+    @State private var protein: String = ""
+    @State private var carbs: String = ""
+    @State private var fat: String = ""
+
+    private let mealTypes = ["Breakfast", "Lunch", "Snack", "Dinner"]
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        Int(kcal) != nil
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Name") {
+                    TextField("Meal name", text: $name)
+                        .autocorrectionDisabled(false)
+                }
+                Section("Type") {
+                    Picker("Type", selection: $type) {
+                        ForEach(mealTypes, id: \.self) { t in
+                            Text(LocalizedStringKey(t)).tag(t)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("Nutrition") {
+                    HStack {
+                        Text("Calories")
+                        Spacer()
+                        TextField("kcal", text: $kcal)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 90)
+                    }
+                    HStack {
+                        Text("Protein")
+                        Spacer()
+                        TextField("g", text: $protein)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                        Text("g").foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("Carbs")
+                        Spacer()
+                        TextField("g", text: $carbs)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                        Text("g").foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("Fat")
+                        Spacer()
+                        TextField("g", text: $fat)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                        Text("g").foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Edit meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { save() }
+                        .fontWeight(.semibold)
+                        .disabled(!canSave)
+                }
+            }
+            .onAppear {
+                name    = base.name
+                type    = base.type
+                kcal    = "\(base.kcal)"
+                protein = "\(base.protein)"
+                carbs   = "\(base.carbs)"
+                fat     = "\(base.fat)"
+            }
+        }
+    }
+
+    private func save() {
+        appState.editMeal(
+            id: base.id,
+            name: name.trimmingCharacters(in: .whitespaces),
+            type: type,
+            kcal: Int(kcal) ?? base.kcal,
+            protein: Int(protein) ?? base.protein,
+            carbs: Int(carbs) ?? base.carbs,
+            fat: Int(fat) ?? base.fat
+        )
+        dismiss()
     }
 }
