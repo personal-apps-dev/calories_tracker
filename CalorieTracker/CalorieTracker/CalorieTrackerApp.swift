@@ -71,6 +71,15 @@ final class AppState: ObservableObject {
     @Published var healthKitAuthorized: Bool = false
     @Published var weights: [WeightEntry] = []
 
+    /// Cache of HealthKit burn data per past day (keyed by start-of-day).
+    /// Populated lazily as the user navigates Home through past days.
+    @Published var burnByDay: [Date: BurnSnapshot] = [:]
+
+    struct BurnSnapshot {
+        let kcal: Int
+        let activities: [Activity]
+    }
+
     let healthKit = HealthKitService()
 
     // MARK: Lifecycle
@@ -301,8 +310,52 @@ final class AppState: ObservableObject {
     }
 
     func effectiveGoal(on date: Date) -> Int {
-        let burn = Calendar.current.isDateInToday(date) ? caloriesBurnedToday : 0
-        return goal + burn
+        goal + burnedKcal(on: date)
+    }
+
+    func burnedKcal(on date: Date) -> Int {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            return caloriesBurnedToday
+        }
+        return burnByDay[cal.startOfDay(for: date)]?.kcal ?? 0
+    }
+
+    func activities(on date: Date) -> [Activity] {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            return activitiesToday
+        }
+        return burnByDay[cal.startOfDay(for: date)]?.activities ?? []
+    }
+
+    /// Pull HealthKit burn data for a past day and cache it. No-op for
+    /// today (already kept fresh by refreshHealth) or unauthorised users.
+    func loadBurn(for date: Date) async {
+        guard healthKitAuthorized else { return }
+        let cal = Calendar.current
+        guard !cal.isDateInToday(date) else { return }
+        let key = cal.startOfDay(for: date)
+        if burnByDay[key] != nil { return }
+
+        async let kcal = healthKit.activeEnergyKcal(on: date)
+        async let workoutsList = healthKit.workouts(on: date)
+        let (active, workouts) = await (kcal, workoutsList)
+
+        let workoutSum = workouts.map(\.kcal).reduce(0, +)
+        let other = max(0, active - workoutSum)
+
+        var tiles = workouts
+        if other > 0 {
+            tiles.append(Activity(
+                id: (workouts.map(\.id).max() ?? -1) + 1,
+                type: "Daily activity",
+                emoji: "🚶",
+                kcal: other,
+                duration: ""
+            ))
+        }
+        burnByDay[key] = BurnSnapshot(kcal: workoutSum + other, activities: tiles)
     }
 
     /// Manually edit a logged meal's fields without re-running Claude.

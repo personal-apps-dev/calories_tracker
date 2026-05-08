@@ -53,7 +53,7 @@ struct HomeView: View {
             MealDetailView(meal: lm)
         }
         .sheet(isPresented: $showBurnedSheet) {
-            BurnedSheetView()
+            BurnedSheetView(date: displayDate)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -62,6 +62,13 @@ struct HomeView: View {
         }
         .refreshable {
             if appState.healthKitAuthorized { await appState.refreshHealth() }
+            await appState.loadBurn(for: displayDate)
+        }
+        .onChange(of: displayDate) { newDate in
+            Task { await appState.loadBurn(for: newDate) }
+        }
+        .onAppear {
+            Task { await appState.loadBurn(for: displayDate) }
         }
     }
 
@@ -230,14 +237,15 @@ struct HomeView: View {
                 .disabled(!isToday)
                 .opacity(isToday ? 1 : 0.6)
 
-                if isToday && appState.caloriesBurnedToday > 0 {
+                let burnedForDay = appState.burnedKcal(on: displayDate)
+                if burnedForDay > 0 {
                     Button {
                         showBurnedSheet = true
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 10, weight: .semibold))
-                            Text("+\(appState.caloriesBurnedToday) burned")
+                            Text("+\(burnedForDay) burned")
                                 .font(.system(size: 12, weight: .semibold))
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 9, weight: .semibold))
@@ -966,16 +974,32 @@ struct MealRowView: View {
 // MARK: - BurnedSheetView
 
 struct BurnedSheetView: View {
+    var date: Date = Date()
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
     @State private var refreshing = false
 
+    private var isToday: Bool { Calendar.current.isDateInToday(date) }
+    private var dateLabel: String {
+        if isToday { return "today" }
+        if Calendar.current.isDateInYesterday(date) { return "yesterday" }
+        let f = DateFormatter(); f.dateFormat = "EEE, MMM d"
+        return f.string(from: date)
+    }
+    private var burnedKcal: Int { appState.burnedKcal(on: date) }
+    private var dayActivities: [Activity] { appState.activities(on: date) }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                Text("Calories burned")
-                    .font(.system(size: 20, weight: .bold))
-                    .tracking(-0.4)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Calories burned")
+                        .font(.system(size: 20, weight: .bold))
+                        .tracking(-0.4)
+                    Text(dateLabel)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button("Done") { dismiss() }
                     .font(.system(size: 14, weight: .medium))
@@ -989,7 +1013,7 @@ struct BurnedSheetView: View {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(accentOrange)
-                    Text("\(appState.caloriesBurnedToday)")
+                    Text("\(burnedKcal)")
                         .font(.system(size: 64, weight: .bold))
                         .tracking(-2.4)
                         .monospacedDigit()
@@ -1015,14 +1039,15 @@ struct BurnedSheetView: View {
             .padding(.vertical, 20)
 
             ScrollView {
-                if appState.activitiesToday.isEmpty {
-                    Text("No activity recorded yet today.")
+                if dayActivities.isEmpty {
+                    Text(isToday ? "No activity recorded yet today."
+                                 : "No activity recorded on this day.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .padding(.top, 12)
                 } else {
                     VStack(spacing: 8) {
-                        ForEach(appState.activitiesToday) { act in
+                        ForEach(dayActivities) { act in
                             BurnRowView(activity: act)
                         }
                     }
@@ -1034,7 +1059,14 @@ struct BurnedSheetView: View {
             Button {
                 Task {
                     refreshing = true
-                    await appState.refreshHealth()
+                    if isToday {
+                        await appState.refreshHealth()
+                    } else {
+                        // force a re-fetch by clearing the cache key first
+                        let key = Calendar.current.startOfDay(for: date)
+                        appState.burnByDay.removeValue(forKey: key)
+                        await appState.loadBurn(for: date)
+                    }
                     refreshing = false
                 }
             } label: {

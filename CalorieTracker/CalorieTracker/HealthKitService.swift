@@ -29,13 +29,18 @@ final class HealthKitService: ObservableObject {
     }
 
     func todayActiveEnergyKcal() async -> Int {
+        await activeEnergyKcal(on: Date())
+    }
+
+    /// Active-energy total for any single calendar day.
+    func activeEnergyKcal(on date: Date) async -> Int {
         guard isAvailable,
               let type = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) else {
             return 0
         }
         let cal = Calendar.current
-        let now = Date()
-        let start = cal.startOfDay(for: now)
+        let start = cal.startOfDay(for: date)
+        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return 0 }
 
         return await withCheckedContinuation { cont in
             let query = HKStatisticsCollectionQuery(
@@ -47,7 +52,7 @@ final class HealthKitService: ObservableObject {
             )
             query.initialResultsHandler = { _, results, _ in
                 var total: Double = 0
-                results?.enumerateStatistics(from: start, to: now) { stats, _ in
+                results?.enumerateStatistics(from: start, to: end) { stats, _ in
                     if let sum = stats.sumQuantity() {
                         total += sum.doubleValue(for: .kilocalorie())
                     }
@@ -89,9 +94,15 @@ final class HealthKitService: ObservableObject {
     }
 
     func todayWorkouts() async -> [Activity] {
+        await workouts(on: Date())
+    }
+
+    func workouts(on date: Date) async -> [Activity] {
         guard isAvailable else { return [] }
-        let start = Calendar.current.startOfDay(for: Date())
-        let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: date)
+        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return [] }
+        let pred = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         let sort = NSSortDescriptor(keyPath: \HKSample.startDate, ascending: false)
 
         return await withCheckedContinuation { cont in
