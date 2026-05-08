@@ -75,15 +75,29 @@ struct HomeView: View {
     // MARK: Header
 
     var header: some View {
-        // Greeting + avatar. The brand mark itself lives below as the
-        // calorie ring (the literal "o" of "nib·o"), so we don't repeat
-        // a wordmark here — it'd dilute the hero.
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                NiboBrand(size: 22, color: .niboForest)
+                Spacer()
+                Button(action: onAvatarTap) {
+                    Circle()
+                        .fill(Color.niboForest)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Text(initials(for: appState.userName))
+                                .font(NiboFont.inter(13, weight: .medium))
+                                .foregroundColor(.niboCream)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open profile")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
                 Text(dateString)
-                    .font(NiboFont.inter(12, weight: .medium))
+                    .font(NiboFont.inter(11, weight: .medium))
                     .foregroundColor(.niboSoftGray)
-                    .tracking(0.4)
+                    .tracking(0.6)
                     .textCase(.uppercase)
                 Group {
                     if appState.userName.isEmpty {
@@ -92,23 +106,10 @@ struct HomeView: View {
                         Text("hey, \(appState.userName) 👋")
                     }
                 }
-                .font(NiboFont.inter(26, weight: .medium))
-                .tracking(-0.7)
+                .font(NiboFont.inter(28, weight: .medium))
+                .tracking(-0.8)
                 .foregroundColor(.niboForest)
             }
-            Spacer()
-            Button(action: onAvatarTap) {
-                Circle()
-                    .fill(Color.niboForest)
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Text(initials(for: appState.userName))
-                            .font(NiboFont.inter(13, weight: .medium))
-                            .foregroundColor(.niboCream)
-                    )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open profile")
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -216,62 +217,87 @@ struct HomeView: View {
     // MARK: Ring + goal button
 
     var ringSection: some View {
-        VStack(spacing: 14) {
-            // The ring IS the brand letter "o". Forest stroke for the
-            // empty state (so the resting circle reads as a typographic
-            // letter), mustard "bite" dot at upper-right (the logo cue),
-            // and a coloured progress arc that fills the letter as the
-            // day goes on.
+        let consumed = displayedConsumed
+        let goal = displayedEffectiveGoal
+        let pct = Double(consumed) / Double(max(1, goal))
+        let burnedForDay = appState.burnedKcal(on: displayDate)
+
+        return VStack(spacing: 16) {
             CalorieRingView(
-                consumed: displayedConsumed,
-                goal: displayedEffectiveGoal,
+                consumed: consumed,
+                goal: goal,
                 size: 220,
                 showBrandDot: true
             )
             HStack(spacing: 8) {
                 Button(action: { showGoalSheet = true }) {
-                    Label(
-                        "Goal · \(appState.goal.formatted(.number)) kcal",
-                        systemImage: "pencil"
-                    )
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 14)
-                    .background(
-                        Capsule()
-                            .fill(Color.niboWhite)
-                            .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-                    )
+                    Group {
+                        if pct > 1.05 {
+                            HStack(spacing: 4) {
+                                Text("+\((consumed - goal).formatted(.number))")
+                                    .monospacedDigit()
+                                Text("over goal")
+                            }
+                            .foregroundColor(.niboForest)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 14)
+                            .background(Capsule().fill(Color.niboMustard.opacity(0.20)))
+                        } else if pct >= 0.95 {
+                            HStack(spacing: 4) {
+                                Text("On track")
+                                Text("🎯")
+                            }
+                            .foregroundColor(.niboForest)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 14)
+                            .background(Capsule().fill(Color.niboMustard.opacity(0.20)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Text("\((goal - consumed).formatted(.number))")
+                                    .monospacedDigit()
+                                Text("kcal left")
+                            }
+                            .foregroundColor(.niboForest)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 14)
+                            .background(
+                                Capsule()
+                                    .fill(Color.niboWhite)
+                                    .overlay(Capsule().stroke(Color.niboHairline, lineWidth: 1))
+                            )
+                        }
+                    }
+                    .font(NiboFont.inter(12, weight: .semibold))
                 }
+                .buttonStyle(.plain)
                 .disabled(!isToday)
                 .opacity(isToday ? 1 : 0.6)
 
-                let burnedForDay = appState.burnedKcal(on: displayDate)
                 if burnedForDay > 0 {
-                    Button {
-                        showBurnedSheet = true
-                    } label: {
+                    Button { showBurnedSheet = true } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.niboMustard)
                             Text("+\(burnedForDay) burned")
-                                .font(.system(size: 12, weight: .semibold))
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
-                                .opacity(0.7)
+                                .font(NiboFont.inter(12, weight: .semibold))
+                                .foregroundColor(.niboForest)
+                                .monospacedDigit()
                         }
-                        .foregroundColor(accentOrange)
-                        .padding(.vertical, 7)
-                        .padding(.horizontal, 12)
-                        .background(Capsule().fill(accentOrange.opacity(0.13)))
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(
+                            Capsule()
+                                .fill(Color.niboWhite)
+                                .overlay(Capsule().stroke(Color.niboHairline, lineWidth: 1))
+                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .padding(.bottom, 24)
     }
 
@@ -460,17 +486,16 @@ struct CalorieRingView: View {
     let consumed: Int
     let goal: Int
     var size: CGFloat = 220
-    /// When true, draws the mustard "bite" dot inside the upper-right of
-    /// the plate (mirroring the Nibo logo's composition) and routes the
-    /// stats out of the ring so the plate reads cleanly as the brand mark.
+    /// When true, draws the mustard "bite" dot at the upper-right rim
+    /// of the ring — small, brand-mark-style, doesn't crowd the inner
+    /// stats. Use on the Home hero so the ring reads as the brand "o".
     var showBrandDot: Bool = false
 
-    // Plate proportions taken from the brand SVG (plate r=28 / stroke 7
-    // / dot r=8 at offset (12, -10) inside an 80×80 viewbox).
-    private var strokeW: CGFloat { size * 0.115 }            // ~25 at 220
-    private var brandDotSize: CGFloat { size * 0.27 }        // ~59 at 220
-    private var brandDotOffsetX: CGFloat { size * 0.214 }    // ~47 at 220
-    private var brandDotOffsetY: CGFloat { -size * 0.179 }   // ~-39 at 220
+    private var strokeW: CGFloat { size * 0.082 }            // ~18 at 220 — chunky, letterform-feel
+    private var brandDotSize: CGFloat { size * 0.075 }       // ~16 at 220 — small rim marker
+    /// 30° clockwise from top, on the ring's centerline.
+    private var brandDotOffsetX: CGFloat { sin(30 * .pi / 180) * (size / 2) }
+    private var brandDotOffsetY: CGFloat { -cos(30 * .pi / 180) * (size / 2) }
 
     private var pct: Double { Double(consumed) / Double(max(1, goal)) }
 
@@ -510,81 +535,45 @@ struct CalorieRingView: View {
     }
 
     var body: some View {
-        // Brand-mark layout: plate on top, stats below. The plate
-        // interior is reserved for the mustard bite — putting numbers
-        // inside would visually fight the logo composition.
-        VStack(spacing: showBrandDot ? 14 : 0) {
-            plateView
-            if showBrandDot {
-                statsBelow
-            }
-        }
-    }
-
-    private var plateView: some View {
         ZStack {
-            // The plate — forest stroke, looks like the letter o at rest.
+            // The empty letter-o — light scaffold the progress fills against.
             Circle()
-                .stroke(Color.niboForest, lineWidth: strokeW)
+                .stroke(Color.niboInset, lineWidth: strokeW)
                 .frame(width: size, height: size)
 
-            // Progress arc fills the plate as the day goes.
+            // Progress arc fills the letter in forest as the day goes,
+            // so "completing the letter" = "hit your goal".
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(ringColor, style: StrokeStyle(lineWidth: strokeW, lineCap: .round))
+                .stroke(Color.niboForest, style: StrokeStyle(lineWidth: strokeW, lineCap: .round))
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
                 .animation(.spring(duration: 0.8), value: progress)
 
+            // Over goal: a softer mustard arc grows from the start, so
+            // overshooting is visible without scolding the user.
             if isOver {
                 Circle()
                     .trim(from: 0, to: overProgress)
-                    .stroke(ringColor.opacity(0.55),
-                            style: StrokeStyle(lineWidth: strokeW + 2, lineCap: .round))
+                    .stroke(Color.niboMustard,
+                            style: StrokeStyle(lineWidth: strokeW, lineCap: .round))
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
                     .animation(.spring(duration: 0.8), value: overProgress)
             }
 
-            // The bite — mustard dot inside upper-right of the plate.
+            // Brand "bite" dot — small mustard marker sitting on the
+            // upper-right rim (1 o'clock). Static; brand mark, not data.
             if showBrandDot {
                 Circle()
                     .fill(Color.niboMustard)
                     .frame(width: brandDotSize, height: brandDotSize)
                     .offset(x: brandDotOffsetX, y: brandDotOffsetY)
-            } else {
-                ringCenter
             }
+
+            ringCenter
         }
         .frame(width: size, height: size)
-        .animation(.easeInOut(duration: 0.4), value: ringColor)
-    }
-
-    private var statsBelow: some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(NiboFont.inter(13, weight: pct >= 0.95 ? .semibold : .medium))
-                .foregroundColor(pct >= 0.95 ? ringColor : .niboSoftGray)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-
-            Text(bigNumber)
-                .font(NiboFont.inter(46, weight: .semibold))
-                .tracking(-1.4)
-                .foregroundColor(pct >= 0.95 ? ringColor : .niboForest)
-                .animation(.easeInOut(duration: 0.4), value: ringColor)
-
-            HStack(spacing: 2) {
-                Text(consumed.formatted(.number))
-                    .font(NiboFont.inter(13, weight: .semibold))
-                    .foregroundColor(.niboForest)
-                Text("/ \(goal.formatted(.number)) kcal")
-                    .font(NiboFont.inter(13))
-                    .foregroundColor(.niboSoftGray)
-                    .tracking(0.4)
-            }
-            .padding(.top, 2)
-        }
     }
 
     /// Short, supportive label that reflects both progress and time of day.
@@ -638,36 +627,26 @@ struct CalorieRingView: View {
         return abs(delta).formatted(.number)
     }
 
-    /// Legacy in-ring stats. Kept for any caller that opts out of the
-    /// brand-dot layout (none today). Sizes scale with the ring.
+    /// In-ring readout: caption · big eaten count · "of X kcal goal".
     var ringCenter: some View {
-        VStack(spacing: 0) {
-            Text(label)
-                .font(NiboFont.inter(size * 0.059, weight: pct >= 0.95 ? .semibold : .medium))
-                .foregroundColor(pct >= 0.95 ? ringColor : .niboSoftGray)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: size * 0.76)
-                .padding(.bottom, 2)
-                .animation(.easeInOut(duration: 0.4), value: ringColor)
+        VStack(spacing: 4) {
+            Text("EATEN TODAY")
+                .font(NiboFont.inter(11, weight: .semibold))
+                .foregroundColor(.niboSoftGray)
+                .tracking(0.6)
 
-            Text(bigNumber)
-                .font(NiboFont.inter(size * 0.255, weight: .semibold))
-                .tracking(-size * 0.009)
-                .foregroundColor(pct >= 0.95 ? ringColor : .niboForest)
-                .animation(.easeInOut(duration: 0.4), value: ringColor)
+            Text(consumed.formatted(.number))
+                .font(NiboFont.inter(46, weight: .semibold))
+                .tracking(-1.4)
+                .foregroundColor(.niboForest)
+                .monospacedDigit()
 
-            HStack(spacing: 2) {
-                Text(consumed.formatted(.number))
-                    .font(NiboFont.inter(size * 0.059, weight: .semibold))
-                    .foregroundColor(.niboForest)
-                Text("/ \(goal.formatted(.number)) kcal")
-                    .font(NiboFont.inter(size * 0.059))
-                    .foregroundColor(.niboSoftGray)
-                    .tracking(0.4)
-            }
-            .padding(.top, 6)
+            Text("of \(goal.formatted(.number)) kcal goal")
+                .font(NiboFont.inter(12))
+                .foregroundColor(.niboSoftGray)
+                .monospacedDigit()
         }
+        .frame(maxWidth: size * 0.78)
     }
 }
 
