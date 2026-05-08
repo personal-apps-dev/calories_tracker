@@ -155,6 +155,31 @@ struct NutritionSummarySheet: View {
 
     private var insights: [NutritionInsight] { generateInsights(stats: stats) }
 
+    /// Top ingredients across the last 7 days, grouped case-insensitively.
+    private var topIngredients: [IngredientStat] {
+        let cal = Calendar.current
+        guard let cutoff = cal.date(byAdding: .day, value: -7, to: Date()) else { return [] }
+        let recent = appState.loggedMeals.filter { $0.timestamp >= cutoff }
+
+        var byKey: [String: (display: String, count: Int, kcal: Int)] = [:]
+        for meal in recent {
+            for item in meal.items {
+                let trimmed = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmed.count >= 2 else { continue }
+                let key = trimmed.lowercased()
+                let entry = byKey[key] ?? (display: trimmed, count: 0, kcal: 0)
+                byKey[key] = (display: entry.display,
+                              count: entry.count + 1,
+                              kcal: entry.kcal + max(0, item.kcal))
+            }
+        }
+        return byKey
+            .map { _, v in IngredientStat(name: v.display.capitalized, count: v.count, kcal: v.kcal) }
+            .sorted { ($0.count, $0.kcal) > ($1.count, $1.kcal) }
+            .prefix(8)
+            .map { $0 }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -165,6 +190,9 @@ struct NutritionSummarySheet: View {
                         mealsCard
                         if !insights.isEmpty {
                             insightsCard
+                        }
+                        if topIngredients.count >= 3 {
+                            topIngredientsCard
                         }
                         aiCard
                     } else {
@@ -332,6 +360,48 @@ struct NutritionSummarySheet: View {
         .cardStyle()
     }
 
+    // MARK: Top ingredients (last 7 days)
+
+    var topIngredientsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("🥣 Top ingredients · last 7 days")
+            VStack(spacing: 0) {
+                ForEach(Array(topIngredients.enumerated()), id: \.element.id) { i, stat in
+                    HStack(spacing: 12) {
+                        Text("\(i + 1)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 18, alignment: .leading)
+                            .monospacedDigit()
+                        Text(stat.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text("×\(stat.count)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(accentOrange)
+                            .monospacedDigit()
+                        Text("· \(stat.kcal) kcal")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    .padding(.vertical, 8)
+                    if i < topIngredients.count - 1 {
+                        Divider()
+                    }
+                }
+            }
+            Text("Grouped case-insensitively across your recent meals.")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .padding(.top, 4)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
     // MARK: AI summary
 
     var aiCard: some View {
@@ -439,6 +509,15 @@ struct NutritionSummarySheet: View {
             .foregroundStyle(.secondary)
             .tracking(0.4)
     }
+}
+
+// MARK: - IngredientStat
+
+struct IngredientStat: Identifiable {
+    let id = UUID()
+    let name: String
+    let count: Int
+    let kcal: Int
 }
 
 // MARK: - InsightRow
