@@ -70,6 +70,7 @@ final class AppState: ObservableObject {
     @Published var activitiesToday: [Activity] = []
     @Published var healthKitAuthorized: Bool = false
     @Published var weights: [WeightEntry] = []
+    @Published var scheduledMeals: [ScheduledMeal] = []
 
     /// Cache of HealthKit burn data per past day (keyed by start-of-day).
     /// Populated lazily as the user navigates Home through past days.
@@ -90,6 +91,7 @@ final class AppState: ObservableObject {
         }
         loggedMeals = LoggedMeal.loadAll()
         weights = WeightEntry.loadAll()
+        scheduledMeals = ScheduledMeal.loadAll()
     }
 
     // MARK: Effective daily goal
@@ -142,6 +144,7 @@ final class AppState: ObservableObject {
     }
 
     func bootstrap() async {
+        prunePastScheduled()
         guard healthKit.isAvailable else { return }
         if healthKitEnabled {
             let ok = await healthKit.requestAuthorization()
@@ -232,6 +235,72 @@ final class AppState: ObservableObject {
         loggedMeals[idx] = updated
         LoggedMeal.saveAll(loggedMeals)
         updateDailyAchievementsCounters()
+    }
+
+    /// Set or clear the post-meal feeling rating (1..5, nil to clear).
+    func setFeelingRating(_ rating: Int?, for mealId: UUID) {
+        guard let idx = loggedMeals.firstIndex(where: { $0.id == mealId }) else { return }
+        let m = loggedMeals[idx]
+        let updated = LoggedMeal(
+            id: m.id,
+            timestamp: m.timestamp,
+            type: m.type,
+            emoji: m.emoji,
+            name: m.name,
+            kcal: m.kcal,
+            protein: m.protein,
+            carbs: m.carbs,
+            fat: m.fat,
+            quality: m.quality,
+            items: m.items,
+            feelingRating: rating
+        )
+        loggedMeals[idx] = updated
+        LoggedMeal.saveAll(loggedMeals)
+    }
+
+    // MARK: Scheduled meals
+
+    func scheduledMeals(on date: Date) -> [ScheduledMeal] {
+        let cal = Calendar.current
+        return scheduledMeals
+            .filter { cal.isDate($0.date, inSameDayAs: date) }
+            .sorted { $0.date < $1.date }
+    }
+
+    func scheduleMeal(from meal: LoggedMeal, onDates dates: [Date]) {
+        let cal = Calendar.current
+        let new = dates
+            .map { cal.startOfDay(for: $0) }
+            .filter { $0 >= cal.startOfDay(for: Date()) }       // only today or future
+            .map { ScheduledMeal(from: meal, on: $0) }
+        scheduledMeals.append(contentsOf: new)
+        scheduledMeals.sort { $0.date < $1.date }
+        ScheduledMeal.saveAll(scheduledMeals)
+    }
+
+    func removeScheduledMeal(id: UUID) {
+        scheduledMeals.removeAll { $0.id == id }
+        ScheduledMeal.saveAll(scheduledMeals)
+    }
+
+    /// Convert a planned meal into a real logged one for today.
+    func confirmScheduledMeal(id: UUID) {
+        guard let scheduled = scheduledMeals.first(where: { $0.id == id }) else { return }
+        let logged = scheduled.asLoggedMeal()
+        logMeal(logged)
+        removeScheduledMeal(id: id)
+    }
+
+    /// Pruning: drop scheduled meals dated before today on every launch so
+    /// the planned-meal pile doesn't grow forever with stale rows.
+    func prunePastScheduled() {
+        let cutoff = Calendar.current.startOfDay(for: Date())
+        let kept = scheduledMeals.filter { $0.date >= cutoff }
+        if kept.count != scheduledMeals.count {
+            scheduledMeals = kept
+            ScheduledMeal.saveAll(scheduledMeals)
+        }
     }
 
     func deleteMeal(id: UUID) {

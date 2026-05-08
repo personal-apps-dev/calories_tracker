@@ -138,6 +138,97 @@ struct WeightEntry: Codable, Identifiable, Hashable {
     }
 }
 
+// MARK: - ScheduledMeal (planned for a future date)
+
+struct ScheduledMeal: Codable, Identifiable {
+    let id: UUID
+    /// The day this meal is planned for (start-of-day).
+    let date: Date
+    let type: String
+    let emoji: String
+    let name: String
+    let kcal: Int
+    let protein: Int
+    let carbs: Int
+    let fat: Int
+    let items: [LoggedItem]
+
+    init(id: UUID = UUID(),
+         date: Date,
+         type: String,
+         emoji: String,
+         name: String,
+         kcal: Int,
+         protein: Int,
+         carbs: Int,
+         fat: Int,
+         items: [LoggedItem] = []) {
+        self.id = id
+        self.date = Calendar.current.startOfDay(for: date)
+        self.type = type
+        self.emoji = emoji
+        self.name = name
+        self.kcal = kcal
+        self.protein = protein
+        self.carbs = carbs
+        self.fat = fat
+        self.items = items
+    }
+
+    init(from meal: LoggedMeal, on date: Date) {
+        self.init(
+            date: date,
+            type: meal.type,
+            emoji: meal.emoji,
+            name: meal.name,
+            kcal: meal.kcal,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fat: meal.fat,
+            items: meal.items
+        )
+    }
+
+    /// Convert into a real LoggedMeal with the supplied (or current) timestamp.
+    func asLoggedMeal(at timestamp: Date = Date()) -> LoggedMeal {
+        LoggedMeal(
+            timestamp: timestamp,
+            type: type,
+            emoji: emoji,
+            name: name,
+            kcal: kcal,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
+            quality: estimateQuality(kcal: kcal, protein: protein, carbs: carbs, fat: fat),
+            items: items
+        )
+    }
+
+    private static let storeKey = "scheduledMeals.v1"
+    private static var fileURL: URL {
+        documentsURL().appendingPathComponent("scheduledMeals.v1.json")
+    }
+
+    static func loadAll() -> [ScheduledMeal] {
+        if let data = try? Data(contentsOf: fileURL),
+           let arr = try? JSONDecoder().decode([ScheduledMeal].self, from: data) {
+            return arr
+        }
+        if let data = UserDefaults.standard.data(forKey: storeKey),
+           let arr = try? JSONDecoder().decode([ScheduledMeal].self, from: data) {
+            return arr
+        }
+        return []
+    }
+
+    static func saveAll(_ entries: [ScheduledMeal]) {
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        try? data.write(to: fileURL, options: .atomic)
+        UserDefaults.standard.set(data, forKey: storeKey)
+    }
+}
+
 // MARK: - Documents helper
 
 func documentsURL() -> URL {
@@ -183,11 +274,14 @@ struct LoggedMeal: Codable, Identifiable {
     let fat: Int
     let quality: Int
     let items: [LoggedItem]
+    /// Optional 1–5 self-reported feeling after the meal (😩 😕 😐 🙂 ⚡)
+    let feelingRating: Int?
 
     init(id: UUID = UUID(), timestamp: Date = Date(),
          type: String, emoji: String, name: String,
          kcal: Int, protein: Int, carbs: Int, fat: Int, quality: Int,
-         items: [LoggedItem] = []) {
+         items: [LoggedItem] = [],
+         feelingRating: Int? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.type = type
@@ -199,10 +293,11 @@ struct LoggedMeal: Codable, Identifiable {
         self.fat = fat
         self.quality = quality
         self.items = items
+        self.feelingRating = feelingRating
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, timestamp, type, emoji, name, kcal, protein, carbs, fat, quality, items
+        case id, timestamp, type, emoji, name, kcal, protein, carbs, fat, quality, items, feelingRating
     }
 
     init(from decoder: Decoder) throws {
@@ -218,6 +313,7 @@ struct LoggedMeal: Codable, Identifiable {
         fat = try c.decode(Int.self, forKey: .fat)
         quality = try c.decode(Int.self, forKey: .quality)
         items = (try? c.decode([LoggedItem].self, forKey: .items)) ?? []
+        feelingRating = try? c.decodeIfPresent(Int.self, forKey: .feelingRating)
     }
 
     var asMeal: Meal {
