@@ -900,7 +900,7 @@ private struct DayChip: View {
                 if isToday {
                     Text("today")
                         .font(.system(size: 9))
-                        .foregroundColor(isSelected ? .white.opacity(0.85) : .tertiary)
+                        .foregroundColor(isSelected ? .white.opacity(0.85) : Color.secondary.opacity(0.6))
                 }
             }
             .frame(maxWidth: .infinity)
