@@ -217,24 +217,17 @@ struct HomeView: View {
 
     var ringSection: some View {
         VStack(spacing: 14) {
-            // Hero wordmark: "nib" + ring as the literal "o" of nibo.
-            // The mustard "bite" dot at upper-right of the ring matches
-            // the brand logo, so the whole composition reads as "nibo"
-            // and as your daily calorie ring at the same time.
-            HStack(alignment: .center, spacing: 0) {
-                Text("nib")
-                    .font(NiboFont.inter(168, weight: .medium))
-                    .tracking(-7)
-                    .foregroundColor(.niboForest)
-                    .padding(.trailing, -6) // tuck closer to the ring
-                CalorieRingView(
-                    consumed: displayedConsumed,
-                    goal: displayedEffectiveGoal,
-                    size: 168,
-                    showBrandDot: true
-                )
-            }
-            .frame(maxWidth: .infinity)
+            // The ring IS the brand letter "o". Forest stroke for the
+            // empty state (so the resting circle reads as a typographic
+            // letter), mustard "bite" dot at upper-right (the logo cue),
+            // and a coloured progress arc that fills the letter as the
+            // day goes on.
+            CalorieRingView(
+                consumed: displayedConsumed,
+                goal: displayedEffectiveGoal,
+                size: 220,
+                showBrandDot: true
+            )
             HStack(spacing: 8) {
                 Button(action: { showGoalSheet = true }) {
                     Label(
@@ -524,10 +517,13 @@ struct CalorieRingView: View {
 
     var body: some View {
         ZStack {
+            // Resting "o" — forest stroke, looks like the letter even at 0%.
             Circle()
-                .stroke(Color.niboHairline, lineWidth: strokeW)
+                .stroke(Color.niboForest, lineWidth: strokeW)
                 .frame(width: size, height: size)
 
+            // Progress arc fills the letter as the day goes. A round
+            // cap on each end softens the edge against the forest base.
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(ringColor, style: StrokeStyle(lineWidth: strokeW, lineCap: .round))
