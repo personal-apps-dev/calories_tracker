@@ -99,7 +99,7 @@ struct AchievementsView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 32)
             }
-            .background(Color(UIColor.systemBackground))
+            .background(Color.niboCream)
             .navigationTitle("Achievements")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -160,7 +160,7 @@ struct AchievementRow: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(achievement.isUnlocked
                           ? accentOrange.opacity(0.15)
-                          : Color(UIColor.tertiarySystemBackground))
+                          : Color.niboInset)
                     .frame(width: 52, height: 52)
                 Text(achievement.icon)
                     .font(.system(size: 26))

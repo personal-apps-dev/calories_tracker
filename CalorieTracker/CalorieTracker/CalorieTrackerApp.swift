@@ -8,7 +8,11 @@ struct CalorieTrackerApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
-                .preferredColorScheme(appState.isDark ? .dark : .light)
+                // Brand is a warm-cream light palette. The brand colors are
+                // hardcoded (don't adapt to dark mode), so we force light to
+                // keep .primary text legible on cream surfaces.
+                .preferredColorScheme(.light)
+                .tint(.niboForest)
                 .task { await appState.bootstrap() }
         }
     }
