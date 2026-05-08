@@ -13,10 +13,10 @@ struct NutritionInsight: Identifiable {
 
     var tint: Color {
         switch kind {
-        case .strong:  return Color(hex: "3DB46D")
-        case .neutral: return .secondary
-        case .watch:   return Color(hex: "F4B740")
-        case .action:  return Color(hex: "5B8DEF")
+        case .strong:  return .niboMustard   // peak / good news
+        case .neutral: return .niboSoftGray  // calm context
+        case .watch:   return .niboRed       // gentle warning
+        case .action:  return .niboForest    // do this next
         }
     }
 }
@@ -265,13 +265,13 @@ struct NutritionSummarySheet: View {
             VStack(spacing: 10) {
                 summaryMacroRow(label: "Protein", grams: stats.totalProtein,
                                 pct: stats.proteinPctOfCals,
-                                color: Color(hex: "5B8DEF"))
+                                color: Color.niboForest)
                 summaryMacroRow(label: "Carbs", grams: stats.totalCarbs,
                                 pct: stats.carbsPctOfCals,
-                                color: Color(hex: "F4B740"))
+                                color: Color.niboMustard)
                 summaryMacroRow(label: "Fat", grams: stats.totalFat,
                                 pct: stats.fatPctOfCals,
-                                color: Color(hex: "E86A6A"))
+                                color: Color.niboRed)
             }
         }
         .padding(16)
@@ -451,7 +451,7 @@ struct NutritionSummarySheet: View {
             }
 
             if let err = aiError {
-                Text(err).font(.system(size: 11)).foregroundColor(Color(hex: "E86A6A"))
+                Text(err).font(.system(size: 11)).foregroundColor(Color.niboRed)
             }
             if appState.claudeApiKey.isEmpty {
                 Text("Add your Claude API key in Profile to enable this.")

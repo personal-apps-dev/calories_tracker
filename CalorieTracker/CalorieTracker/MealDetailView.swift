@@ -212,7 +212,7 @@ struct MealDetailView: View {
                     Text("Delete meal")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundColor(Color(hex: "E86A6A"))
+                .foregroundColor(Color.niboRed)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(
@@ -274,9 +274,9 @@ struct MealDetailView: View {
             }
 
             VStack(spacing: 10) {
-                MacroLineView(label: "Protein", grams: live.protein, totalKcal: live.kcal, gPerKcal: 4, color: Color(hex: "5B8DEF"))
-                MacroLineView(label: "Carbs",   grams: live.carbs,   totalKcal: live.kcal, gPerKcal: 4, color: Color(hex: "F4B740"))
-                MacroLineView(label: "Fat",     grams: live.fat,     totalKcal: live.kcal, gPerKcal: 9, color: Color(hex: "E86A6A"))
+                MacroLineView(label: "Protein", grams: live.protein, totalKcal: live.kcal, gPerKcal: 4, color: Color.niboForest)
+                MacroLineView(label: "Carbs",   grams: live.carbs,   totalKcal: live.kcal, gPerKcal: 4, color: Color.niboMustard)
+                MacroLineView(label: "Fat",     grams: live.fat,     totalKcal: live.kcal, gPerKcal: 9, color: Color.niboRed)
             }
         }
         .padding(16)
@@ -458,9 +458,9 @@ struct FactorRow: View {
     }
     private var tint: Color {
         switch factor.impact {
-        case .positive: return Color(hex: "3DB46D")
+        case .positive: return Color.niboForest
         case .neutral:  return Color.secondary
-        case .negative: return Color(hex: "E86A6A")
+        case .negative: return Color.niboRed
         }
     }
 
@@ -598,7 +598,7 @@ struct RefineMealSheet: View {
                 if let err = errorMessage {
                     Text(err)
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: "E86A6A"))
+                        .foregroundColor(Color.niboRed)
                 }
 
                 Spacer(minLength: 0)

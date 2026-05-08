@@ -527,9 +527,9 @@ struct ResultView: View {
 
                 // Macro chips
                 HStack(spacing: 10) {
-                    MacroChip(label: "Protein", value: analysis.protein, color: Color(hex: "5B8DEF"))
-                    MacroChip(label: "Carbs",   value: analysis.carbs,   color: Color(hex: "F4B740"))
-                    MacroChip(label: "Fat",     value: analysis.fat,     color: Color(hex: "E86A6A"))
+                    MacroChip(label: "Protein", value: analysis.protein, color: Color.niboForest)
+                    MacroChip(label: "Carbs",   value: analysis.carbs,   color: Color.niboMustard)
+                    MacroChip(label: "Fat",     value: analysis.fat,     color: Color.niboRed)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 14)
@@ -644,7 +644,7 @@ struct ResultView: View {
 
     var confidencePill: some View {
         HStack(spacing: 5) {
-            Circle().fill(Color(hex: "7CFC00")).frame(width: 6, height: 6)
+            Circle().fill(Color.niboMustard).frame(width: 6, height: 6)
             Text("\(analysis.confidence)% match")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.white)

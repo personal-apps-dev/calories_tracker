@@ -193,7 +193,7 @@ struct AchievementRow: View {
                                 .frame(height: 4)
                             Capsule()
                                 .fill(achievement.isUnlocked
-                                      ? Color(hex: "3DB46D")
+                                      ? Color.niboForest
                                       : accentOrange)
                                 .frame(width: geo.size.width * achievement.fraction, height: 4)
                         }

@@ -358,19 +358,11 @@ struct LoggedMeal: Codable, Identifiable {
     }
 }
 
+/// Brand-aligned gradient used as the visual background for meal tiles.
+/// Single warm cream → mustard wash regardless of meal type, so the
+/// emoji is what distinguishes the meal — colour is reserved for state.
 func gradientFor(type: String) -> [Color] {
-    switch type.lowercased() {
-    case "breakfast", "brunch":
-        return [Color(hex: "F4E4C1"), Color(hex: "E8B4B8")]
-    case "lunch":
-        return [Color(hex: "C8E6C9"), Color(hex: "81C784")]
-    case "snack":
-        return [Color(hex: "FFCCBC"), Color(hex: "FF8A65")]
-    case "dinner":
-        return [Color(hex: "FFE0B2"), Color(hex: "FFB74D")]
-    default:
-        return [Color(hex: "F4E4C1"), Color(hex: "E8B4B8")]
-    }
+    [Color.niboCream, Color.niboMustard.opacity(0.45)]
 }
 
 func mealTypeForNow(_ date: Date = Date()) -> String {

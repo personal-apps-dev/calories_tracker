@@ -287,9 +287,9 @@ struct HomeView: View {
                 .foregroundStyle(.tertiary)
                 .tracking(0.6)
             VStack(spacing: 9) {
-                CompactMacroRow(label: "Protein", stat: appState.proteinStat(on: displayDate), color: Color(hex: "5B8DEF"))
-                CompactMacroRow(label: "Carbs",   stat: appState.carbsStat(on: displayDate),   color: Color(hex: "F4B740"))
-                CompactMacroRow(label: "Fat",     stat: appState.fatStat(on: displayDate),     color: Color(hex: "E86A6A"))
+                CompactMacroRow(label: "Protein", stat: appState.proteinStat(on: displayDate), color: Color.niboForest)
+                CompactMacroRow(label: "Carbs",   stat: appState.carbsStat(on: displayDate),   color: Color.niboMustard)
+                CompactMacroRow(label: "Fat",     stat: appState.fatStat(on: displayDate),     color: Color.niboRed)
             }
             Spacer(minLength: 0)
         }
@@ -751,7 +751,7 @@ struct ActivityCardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: "FF375F"))
+                            .foregroundColor(Color.niboMustard)
                         Text("Connect Apple Health")
                             .font(.system(size: 13, weight: .semibold))
                         Spacer()
@@ -783,7 +783,7 @@ struct ActivityCardView: View {
         HStack(spacing: 4) {
             Image(systemName: "heart.fill")
                 .font(.system(size: 9))
-                .foregroundColor(Color(hex: "FF375F"))
+                .foregroundColor(Color.niboMustard)
             Text(connected ? "HEALTH" : "OFF")
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(0.4)
@@ -905,7 +905,7 @@ struct FoodQualityCardView: View {
                             Text("✨ Every meal scored high")
                                 .font(.system(size: 12, weight: .medium))
                                 .lineLimit(1)
-                                .foregroundColor(Color(hex: "3DB46D"))
+                                .foregroundColor(Color.niboForest)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -1073,7 +1073,7 @@ struct BurnedSheetView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 9))
-                            .foregroundColor(Color(hex: "FF375F"))
+                            .foregroundColor(Color.niboMustard)
                         Text("FROM APPLE HEALTH")
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(0.6)

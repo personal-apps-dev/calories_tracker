@@ -24,6 +24,10 @@ extension Color {
     static let niboInset     = Color(red: 26/255, green: 46/255, blue: 34/255, opacity: 0.04)
     /// Hairline rule on cream / white.
     static let niboHairline  = Color(red: 26/255, green: 46/255, blue: 34/255, opacity: 0.10)
+    /// Single anti-shame warning hue. Used sparingly — destructive
+    /// actions and "way over goal". Picked to sit warmly inside the
+    /// cream/mustard palette rather than pop against it.
+    static let niboRed       = Color(hex: "B85C4A")
 }
 
 /// Brand accent. Kept as the original symbol name so existing call
@@ -60,10 +64,10 @@ enum NiboFont {
 // MARK: - Quality helpers
 
 func qualityColor(_ q: Int) -> Color {
-    if q >= 80 { return Color(hex: "3DB46D") }      // strong green — keeps semantic contrast
-    if q >= 60 { return .niboMustard }              // brand peak = "good enough"
-    if q >= 45 { return Color(hex: "C49A2E") }      // muted mustard
-    return Color(hex: "B85C4A")                     // softened red — anti-shame
+    if q >= 80 { return .niboForest }   // dark, "you're set"
+    if q >= 60 { return .niboMustard }  // brand peak — "good"
+    if q >= 45 { return .niboSage }     // calm, "fair"
+    return .niboRed                     // anti-shame "could be better"
 }
 
 func qualityLabel(_ q: Int) -> String {
