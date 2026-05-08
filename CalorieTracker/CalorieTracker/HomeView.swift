@@ -75,24 +75,10 @@ struct HomeView: View {
     // MARK: Header
 
     var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                NiboBrand(size: 22, color: .niboForest)
-                Spacer()
-                Button(action: onAvatarTap) {
-                    Circle()
-                        .fill(Color.niboForest)
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Text(initials(for: appState.userName))
-                                .font(NiboFont.inter(13, weight: .medium))
-                                .foregroundColor(.niboCream)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open profile")
-            }
-
+        // Greeting + avatar. The brand mark itself lives below as the
+        // calorie ring (the literal "o" of "nib·o"), so we don't repeat
+        // a wordmark here — it'd dilute the hero.
+        HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(dateString)
                     .font(NiboFont.inter(12, weight: .medium))
@@ -106,10 +92,23 @@ struct HomeView: View {
                         Text("hey, \(appState.userName) 👋")
                     }
                 }
-                .font(NiboFont.inter(28, weight: .medium))
-                .tracking(-0.8)
+                .font(NiboFont.inter(26, weight: .medium))
+                .tracking(-0.7)
                 .foregroundColor(.niboForest)
             }
+            Spacer()
+            Button(action: onAvatarTap) {
+                Circle()
+                    .fill(Color.niboForest)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text(initials(for: appState.userName))
+                            .font(NiboFont.inter(13, weight: .medium))
+                            .foregroundColor(.niboCream)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open profile")
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -217,11 +216,25 @@ struct HomeView: View {
     // MARK: Ring + goal button
 
     var ringSection: some View {
-        VStack(spacing: 10) {
-            CalorieRingView(
-                consumed: displayedConsumed,
-                goal: displayedEffectiveGoal
-            )
+        VStack(spacing: 14) {
+            // Hero wordmark: "nib" + ring as the literal "o" of nibo.
+            // The mustard "bite" dot at upper-right of the ring matches
+            // the brand logo, so the whole composition reads as "nibo"
+            // and as your daily calorie ring at the same time.
+            HStack(alignment: .center, spacing: 0) {
+                Text("nib")
+                    .font(NiboFont.inter(168, weight: .medium))
+                    .tracking(-7)
+                    .foregroundColor(.niboForest)
+                    .padding(.trailing, -6) // tuck closer to the ring
+                CalorieRingView(
+                    consumed: displayedConsumed,
+                    goal: displayedEffectiveGoal,
+                    size: 168,
+                    showBrandDot: true
+                )
+            }
+            .frame(maxWidth: .infinity)
             HStack(spacing: 8) {
                 Button(action: { showGoalSheet = true }) {
                     Label(
@@ -453,9 +466,19 @@ struct HomeView: View {
 struct CalorieRingView: View {
     let consumed: Int
     let goal: Int
+    var size: CGFloat = 220
+    /// When true, draws the mustard "bite" dot at the upper-right of
+    /// the ring — the brand signature from the Nibo logo. Use this on
+    /// the Home hero so the ring reads as the "o" of "nibo".
+    var showBrandDot: Bool = false
 
-    private let size: CGFloat = 220
-    private let strokeW: CGFloat = 14
+    private var strokeW: CGFloat { size * 0.064 }            // 14 at 220
+    private var labelFontSize: CGFloat { size * 0.059 }      // 13 at 220
+    private var bigFontSize: CGFloat { size * 0.255 }        // 56 at 220
+    private var subFontSize: CGFloat { size * 0.059 }        // 13 at 220
+    private var bigTracking: CGFloat { -size * 0.009 }       // -2 at 220
+    private var labelMaxWidth: CGFloat { size * 0.76 }       // 168 at 220
+    private var brandDotSize: CGFloat { size * 0.15 }        // 33 at 220
 
     private var pct: Double { Double(consumed) / Double(max(1, goal)) }
 
@@ -502,7 +525,7 @@ struct CalorieRingView: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.06), lineWidth: strokeW)
+                .stroke(Color.niboHairline, lineWidth: strokeW)
                 .frame(width: size, height: size)
 
             Circle()
@@ -520,6 +543,19 @@ struct CalorieRingView: View {
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
                     .animation(.spring(duration: 0.8), value: overProgress)
+            }
+
+            // Brand "bite" dot — sits on the upper-right rim, half over
+            // the stroke / half outside, mirroring the logo composition.
+            // Renders only when the ring is being used as the brand mark.
+            if showBrandDot {
+                Circle()
+                    .fill(Color.niboMustard)
+                    .frame(width: brandDotSize, height: brandDotSize)
+                    .offset(
+                        x: cos(30 * .pi / 180) * (size / 2),
+                        y: -sin(30 * .pi / 180) * (size / 2)
+                    )
             }
 
             ringCenter
@@ -582,26 +618,27 @@ struct CalorieRingView: View {
     var ringCenter: some View {
         VStack(spacing: 0) {
             Text(label)
-                .font(.system(size: 13, weight: pct >= 0.95 ? .semibold : .medium))
-                .foregroundColor(pct >= 0.95 ? ringColor : .secondary)
+                .font(NiboFont.inter(labelFontSize, weight: pct >= 0.95 ? .semibold : .medium))
+                .foregroundColor(pct >= 0.95 ? ringColor : .niboSoftGray)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .frame(maxWidth: 168)
+                .frame(maxWidth: labelMaxWidth)
                 .padding(.bottom, 2)
                 .animation(.easeInOut(duration: 0.4), value: ringColor)
 
             Text(bigNumber)
-                .font(.system(size: 56, weight: .bold))
-                .tracking(-2)
-                .foregroundColor(pct >= 0.95 ? ringColor : .primary)
+                .font(NiboFont.inter(bigFontSize, weight: .semibold))
+                .tracking(bigTracking)
+                .foregroundColor(pct >= 0.95 ? ringColor : .niboForest)
                 .animation(.easeInOut(duration: 0.4), value: ringColor)
 
             HStack(spacing: 2) {
                 Text(consumed.formatted(.number))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(NiboFont.inter(subFontSize, weight: .semibold))
+                    .foregroundColor(.niboForest)
                 Text("/ \(goal.formatted(.number)) kcal")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                    .font(NiboFont.inter(subFontSize))
+                    .foregroundColor(.niboSoftGray)
                     .tracking(0.4)
             }
             .padding(.top, 6)
