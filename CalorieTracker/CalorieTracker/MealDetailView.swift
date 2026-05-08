@@ -50,7 +50,7 @@ struct MealDetailView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 32)
             }
-            .background(Color(UIColor.systemBackground))
+            .background(Color.niboCream)
             .navigationTitle("Meal details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -111,7 +111,7 @@ struct MealDetailView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(isPicked
                                           ? accentOrange.opacity(0.18)
-                                          : Color(UIColor.tertiarySystemBackground))
+                                          : Color.niboInset)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
                                             .stroke(isPicked ? accentOrange : Color.primary.opacity(0.06), lineWidth: 1.5)
@@ -179,7 +179,7 @@ struct MealDetailView: View {
                 .frame(height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(UIColor.tertiarySystemBackground))
+                        .fill(Color.niboInset)
                         .overlay(RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 )
@@ -198,7 +198,7 @@ struct MealDetailView: View {
                 .frame(height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(UIColor.tertiarySystemBackground))
+                        .fill(Color.niboInset)
                         .overlay(RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 )
@@ -217,7 +217,7 @@ struct MealDetailView: View {
                 .frame(height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(UIColor.tertiarySystemBackground))
+                        .fill(Color.niboInset)
                         .overlay(RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 )
@@ -569,7 +569,7 @@ struct RefineMealSheet: View {
                 .frame(minHeight: 130)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(UIColor.secondarySystemBackground))
+                        .fill(Color.niboWhite)
                         .overlay(RoundedRectangle(cornerRadius: 14)
                             .stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 )
@@ -586,7 +586,7 @@ struct RefineMealSheet: View {
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
                                     .background(
-                                        Capsule().fill(Color(UIColor.tertiarySystemBackground))
+                                        Capsule().fill(Color.niboInset)
                                             .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                                     )
                             }
@@ -932,7 +932,7 @@ private struct DayChip: View {
             .frame(height: 64)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? accentOrange : Color(UIColor.secondarySystemBackground))
+                    .fill(isSelected ? accentOrange : Color.niboWhite)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(isSelected ? accentOrange : Color.primary.opacity(0.08), lineWidth: 1)

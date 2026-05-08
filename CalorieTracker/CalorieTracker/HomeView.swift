@@ -44,7 +44,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 110)
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color.niboCream)
         .scrollEdgeFade()
         .sheet(isPresented: $showAchievements) {
             AchievementsView()
@@ -75,41 +75,45 @@ struct HomeView: View {
     // MARK: Header
 
     var header: some View {
-        HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                NiboBrand(size: 22, color: .niboForest)
+                Spacer()
+                Button(action: onAvatarTap) {
+                    Circle()
+                        .fill(Color.niboForest)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Text(initials(for: appState.userName))
+                                .font(NiboFont.inter(13, weight: .medium))
+                                .foregroundColor(.niboCream)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open profile")
+            }
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(dateString)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(NiboFont.inter(12, weight: .medium))
+                    .foregroundColor(.niboSoftGray)
+                    .tracking(0.4)
+                    .textCase(.uppercase)
                 Group {
                     if appState.userName.isEmpty {
-                        Text("Hey, there 👋")
+                        Text("hey, there 👋")
                     } else {
-                        Text("Hey, \(appState.userName) 👋")
+                        Text("hey, \(appState.userName) 👋")
                     }
                 }
-                .font(.system(size: 28, weight: .bold))
+                .font(NiboFont.inter(28, weight: .medium))
                 .tracking(-0.8)
+                .foregroundColor(.niboForest)
             }
-            Spacer()
-            Button(action: onAvatarTap) {
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [accentOrange, Color(hex: "5B8DEF")],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Text(initials(for: appState.userName))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                    )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open profile")
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.bottom, 14)
     }
 
     // MARK: Streak pill
@@ -130,7 +134,7 @@ struct HomeView: View {
             .padding(.trailing, 10)
             .background(
                 Capsule()
-                    .fill(Color(UIColor.secondarySystemBackground))
+                    .fill(Color.niboWhite)
                     .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
             )
         }
@@ -167,7 +171,7 @@ struct HomeView: View {
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color(UIColor.secondarySystemBackground))
+                            .fill(Color.niboWhite)
                             .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
             }
@@ -200,7 +204,7 @@ struct HomeView: View {
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color(UIColor.secondarySystemBackground))
+                            .fill(Color.niboWhite)
                             .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
             }
@@ -230,7 +234,7 @@ struct HomeView: View {
                     .padding(.horizontal, 14)
                     .background(
                         Capsule()
-                            .fill(Color(UIColor.secondarySystemBackground))
+                            .fill(Color.niboWhite)
                             .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
                 }
@@ -460,10 +464,14 @@ struct CalorieRingView: View {
     ///   pct 1.0 → green    (hit the goal exactly)
     ///   pct 1.5 → red      (50% over)
     /// Below 0 clamps to orange, above 1.5 clamps to red.
+    /// Color interpolates smoothly across stops, brand-aligned:
+    ///   pct 0.0 → mist (#A8B5AC)   — neutral start of day
+    ///   pct 1.0 → mustard (#D4A437) — brand accent at goal
+    ///   pct 1.5 → soft red (#B85C4A) — anti-shame "over" tone
     private static let stops: [(Double, (Double, Double, Double))] = [
-        (0.0, (1.00, 0.42, 0.21)),  // FF6B35 — accent orange
-        (1.0, (0.24, 0.71, 0.43)),  // 3DB46D — peak green
-        (1.5, (0.91, 0.42, 0.42)),  // E86A6A — over red
+        (0.0, (168/255.0, 181/255.0, 172/255.0)),  // niboMist
+        (1.0, (212/255.0, 164/255.0,  55/255.0)),  // niboMustard
+        (1.5, (184/255.0,  92/255.0,  74/255.0)),  // muted red, anti-shame
     ]
 
     private static func gradientColor(for pct: Double) -> Color {
@@ -755,7 +763,7 @@ struct ActivityCardView: View {
                     .padding(.horizontal, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(UIColor.tertiarySystemBackground))
+                            .fill(Color.niboInset)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
@@ -785,7 +793,7 @@ struct ActivityCardView: View {
         .padding(.horizontal, 8)
         .background(
             Capsule()
-                .fill(Color(UIColor.tertiarySystemBackground))
+                .fill(Color.niboInset)
                 .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
         )
     }
@@ -820,7 +828,7 @@ struct ActivityTileView: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(UIColor.tertiarySystemBackground))
+                .fill(Color.niboInset)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.primary.opacity(0.08), lineWidth: 1)
@@ -969,7 +977,7 @@ struct MealRowView: View {
                         .fill(qc)
                         .frame(width: 20, height: 20)
                         .overlay(
-                            Circle().stroke(Color(UIColor.systemBackground), lineWidth: 2)
+                            Circle().stroke(Color.niboCream, lineWidth: 2)
                         )
                     Text("\(meal.quality)")
                         .font(.system(size: 10, weight: .bold))
@@ -1072,7 +1080,7 @@ struct BurnedSheetView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4).padding(.horizontal, 10)
-                    .background(Capsule().fill(Color(UIColor.tertiarySystemBackground)))
+                    .background(Capsule().fill(Color.niboInset))
                 }
             }
             .padding(.vertical, 20)
@@ -1141,7 +1149,7 @@ struct BurnRowView: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(UIColor.tertiarySystemBackground))
+                    .fill(Color.niboInset)
                     .frame(width: 44, height: 44)
                 Text(activity.emoji).font(.system(size: 22))
             }
@@ -1168,7 +1176,7 @@ struct BurnRowView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(UIColor.secondarySystemBackground))
+                .fill(Color.niboWhite)
                 .overlay(RoundedRectangle(cornerRadius: 14)
                     .stroke(Color.primary.opacity(0.06), lineWidth: 1))
         )
@@ -1230,7 +1238,7 @@ struct PlannedMealRow: View {
                         .foregroundStyle(.tertiary)
                         .frame(width: 28, height: 28)
                         .background(
-                            Circle().fill(Color(UIColor.tertiarySystemBackground))
+                            Circle().fill(Color.niboInset)
                         )
                 }
                 .buttonStyle(.plain)
@@ -1239,7 +1247,7 @@ struct PlannedMealRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(UIColor.secondarySystemBackground).opacity(0.6))
+                .fill(Color.niboWhite.opacity(0.6))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(

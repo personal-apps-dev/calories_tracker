@@ -199,7 +199,7 @@ struct DescribeMealSheet: View {
                 .frame(minHeight: 160)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(UIColor.secondarySystemBackground))
+                        .fill(Color.niboWhite)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
                                 .stroke(Color.primary.opacity(0.08), lineWidth: 1)
@@ -224,7 +224,7 @@ struct DescribeMealSheet: View {
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
                                     .background(
-                                        Capsule().fill(Color(UIColor.tertiarySystemBackground))
+                                        Capsule().fill(Color.niboInset)
                                             .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                                     )
                             }
@@ -407,7 +407,7 @@ struct ErrorView: View {
 
     var body: some View {
         ZStack {
-            Color(UIColor.systemBackground).ignoresSafeArea()
+            Color.niboCream.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
@@ -416,7 +416,7 @@ struct ErrorView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.primary)
                             .frame(width: 36, height: 36)
-                            .background(Circle().fill(Color(UIColor.secondarySystemBackground)))
+                            .background(Circle().fill(Color.niboWhite))
                     }
                     Spacer()
                 }
@@ -592,7 +592,7 @@ struct ResultView: View {
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedMeal == m ? accentOrange : Color(UIColor.secondarySystemBackground))
+                                    .fill(selectedMeal == m ? accentOrange : Color.niboWhite)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
                                             .stroke(selectedMeal == m ? accentOrange : Color.primary.opacity(0.08), lineWidth: 1)
@@ -613,7 +613,7 @@ struct ResultView: View {
                     .frame(width: 80, height: 54)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(UIColor.secondarySystemBackground))
+                            .fill(Color.niboWhite)
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
 
@@ -632,14 +632,14 @@ struct ResultView: View {
             .padding(.bottom, 34)
             .background(
                 LinearGradient(
-                    colors: [Color(UIColor.systemBackground).opacity(0), Color(UIColor.systemBackground)],
+                    colors: [Color.niboCream.opacity(0), Color.niboCream],
                     startPoint: .top, endPoint: .bottom
                 )
                 .ignoresSafeArea()
                 .frame(height: 120)
             )
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color.niboCream)
     }
 
     var confidencePill: some View {

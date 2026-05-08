@@ -203,7 +203,7 @@ struct NutritionSummarySheet: View {
                 .padding(.top, 8)
                 .padding(.bottom, 32)
             }
-            .background(Color(UIColor.systemBackground))
+            .background(Color.niboCream)
             .navigationTitle("Today's nutrition")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

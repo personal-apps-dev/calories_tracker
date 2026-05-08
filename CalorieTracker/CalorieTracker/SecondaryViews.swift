@@ -61,7 +61,7 @@ struct DiaryView: View {
                 }
             }
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color.niboCream)
         .scrollEdgeFade()
         .sheet(item: $selectedLogged) { lm in
             MealDetailView(meal: lm)
@@ -274,7 +274,7 @@ struct TrendsView: View {
             }
             .padding(.bottom, 110)
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color.niboCream)
         .scrollEdgeFade()
     }
 
@@ -322,7 +322,7 @@ struct TrendsView: View {
                 .padding(.vertical, 7)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(range == r ? Color(UIColor.systemBackground) : Color.clear)
+                        .fill(range == r ? Color.niboCream : Color.clear)
                         .shadow(color: .black.opacity(range == r ? 0.06 : 0), radius: 2, y: 1)
                 )
             }
@@ -330,7 +330,7 @@ struct TrendsView: View {
         .padding(4)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(UIColor.secondarySystemBackground))
+                .fill(Color.niboWhite)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.08), lineWidth: 1))
         )
         .padding(.horizontal, 24)
@@ -416,7 +416,7 @@ struct TrendsView: View {
                     }
                 }
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(metric == m ? Color(UIColor.systemBackground) : .secondary)
+                .foregroundColor(metric == m ? Color.niboCream : .secondary)
                 .padding(.vertical, 6)
                 .padding(.horizontal, 14)
                 .background(
@@ -816,7 +816,7 @@ struct ProfileView: View {
                                     .padding(10)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color(UIColor.tertiarySystemBackground))
+                                            .fill(Color.niboInset)
                                     )
                                 Text("Used only for food photo analysis. Never shared.")
                                     .font(.system(size: 11))
@@ -843,7 +843,7 @@ struct ProfileView: View {
                     .padding(.bottom, 110)
             }
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color.niboCream)
         .scrollEdgeFade()
         .sheet(isPresented: $showAchievements) { AchievementsView() }
         .sheet(isPresented: $showLanguagePicker) {
@@ -1076,7 +1076,7 @@ struct ProfileRow: View {
                     .frame(width: 32, height: 32)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(UIColor.tertiarySystemBackground))
+                            .fill(Color.niboInset)
                     )
 
                 Text(LocalizedStringKey(label))
@@ -1236,7 +1236,7 @@ struct GoalSheetView: View {
                     .padding(.vertical, 8)
                     .background(
                         Capsule()
-                            .fill(draft == p ? accentOrange : Color(UIColor.secondarySystemBackground))
+                            .fill(draft == p ? accentOrange : Color.niboWhite)
                             .overlay(
                                 Capsule().stroke(
                                     draft == p ? accentOrange : Color.primary.opacity(0.08),
@@ -1280,7 +1280,7 @@ struct StepBtn: View {
                 .frame(width: 44, height: 44)
                 .background(
                     Circle()
-                        .fill(Color(UIColor.secondarySystemBackground))
+                        .fill(Color.niboWhite)
                         .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 )
         }
@@ -1488,7 +1488,7 @@ struct WeightSectionView: View {
                     .foregroundColor(.primary)
                     .padding(.vertical, 7).padding(.horizontal, 12)
                     .background(
-                        Capsule().fill(Color(UIColor.tertiarySystemBackground))
+                        Capsule().fill(Color.niboInset)
                             .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
                     )
                 }
