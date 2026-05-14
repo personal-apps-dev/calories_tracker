@@ -232,6 +232,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your active energy and workouts so we can show how many calories you've burned today.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Used to log nutrition information from meals you analyze in this app.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Nibo;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -261,6 +262,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your active energy and workouts so we can show how many calories you've burned today.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Used to log nutrition information from meals you analyze in this app.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Nibo;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
