@@ -136,11 +136,9 @@ struct MenuResultView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(ranked.enumerated()), id: \.element.id) { i, item in
-                    Button { onLog(item) } label: {
-                        MenuDishRow(item: item,
-                                    isRecommended: item.id == recommended?.id)
-                    }
-                    .buttonStyle(.plain)
+                    MenuDishRow(item: item,
+                                isRecommended: item.id == recommended?.id,
+                                onLog: { onLog(item) })
                     if i < ranked.count - 1 {
                         Divider()
                     }
@@ -158,9 +156,10 @@ struct MenuResultView: View {
 struct MenuDishRow: View {
     let item: MenuItem
     let isRecommended: Bool
+    let onLog: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             // Nutrition score badge
             ZStack {
                 Circle()
@@ -184,31 +183,30 @@ struct MenuDishRow: View {
                             .foregroundColor(.niboMustard)
                     }
                 }
+                Text("\(item.kcal) kcal · \(item.protein)P / \(item.carbs)C / \(item.fat)F")
+                    .font(NiboFont.inter(11))
+                    .foregroundColor(.niboSoftGray)
+                    .monospacedDigit()
                 if !item.note.isEmpty {
                     Text(item.note)
                         .font(NiboFont.inter(11))
                         .foregroundColor(.niboSoftGray)
                         .lineLimit(1)
                 }
-                Text("\(item.protein)P / \(item.carbs)C / \(item.fat)F")
-                    .font(NiboFont.inter(10))
-                    .foregroundColor(.niboSoftGray)
-                    .monospacedDigit()
             }
 
             Spacer(minLength: 4)
 
-            VStack(alignment: .trailing, spacing: 1) {
-                Text("\(item.kcal)")
-                    .font(NiboFont.inter(16, weight: .semibold))
+            Button(action: onLog) {
+                Text("Log")
+                    .font(NiboFont.inter(13, weight: .semibold))
                     .foregroundColor(.niboForest)
-                    .monospacedDigit()
-                Text("kcal")
-                    .font(NiboFont.inter(10))
-                    .foregroundColor(.niboSoftGray)
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 14)
+                    .background(Capsule().fill(Color.niboMustard))
             }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, 11)
-        .contentShape(Rectangle())
     }
 }
