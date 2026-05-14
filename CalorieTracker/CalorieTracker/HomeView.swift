@@ -26,18 +26,10 @@ struct HomeView: View {
     private var displayedAvgQuality: Int { appState.avgQuality(on: displayDate) }
     private var displayedEffectiveGoal: Int { appState.effectiveGoal(on: displayDate) }
 
-    private var dateString: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, MMMM d"
-        return f.string(from: Date())
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                header
-                streakPill
-                dayPicker
+                topBar
                 ringSection
                 macroAndQualityRow
                 mealsSection
@@ -72,17 +64,28 @@ struct HomeView: View {
         }
     }
 
-    // MARK: Header
+    // MARK: Top bar (WHOOP-style: avatar + streak · day-nav · brand)
 
-    var header: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                NiboBrand(size: 22, color: .niboForest)
-                Spacer()
+    private var dayLabel: String {
+        if isToday { return "Today" }
+        if Calendar.current.isDateInYesterday(displayDate) { return "Yesterday" }
+        let f = DateFormatter()
+        f.dateFormat = Calendar.current.isDate(displayDate, equalTo: Date(), toGranularity: .weekOfYear)
+            ? "EEEE" : "MMM d"
+        return f.string(from: displayDate)
+    }
+
+    var topBar: some View {
+        ZStack {
+            // Centered day navigation pill
+            dayNavPill
+
+            HStack(spacing: 8) {
+                // Avatar → profile
                 Button(action: onAvatarTap) {
                     Circle()
                         .fill(Color.niboForest)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 34, height: 34)
                         .overlay(
                             Text(initials(for: appState.userName))
                                 .font(NiboFont.inter(13, weight: .medium))
@@ -91,127 +94,83 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open profile")
-            }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(dateString)
-                    .font(NiboFont.inter(11, weight: .medium))
-                    .foregroundColor(.niboSoftGray)
-                    .tracking(0.6)
-                    .textCase(.uppercase)
-                Group {
-                    if appState.userName.isEmpty {
-                        Text("hey, there 👋")
-                    } else {
-                        Text("hey, \(appState.userName) 👋")
+                // Streak → achievements
+                Button { showAchievements = true } label: {
+                    HStack(spacing: 4) {
+                        Text(streakEmoji(appState.streak))
+                            .font(.system(size: 12))
+                        Text("\(appState.streak)")
+                            .font(NiboFont.inter(13, weight: .semibold))
+                            .foregroundColor(.niboForest)
+                            .monospacedDigit()
                     }
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 10)
+                    .background(
+                        Capsule()
+                            .fill(Color.niboWhite)
+                            .overlay(Capsule().stroke(Color.niboHairline, lineWidth: 1))
+                    )
                 }
-                .font(NiboFont.inter(28, weight: .medium))
-                .tracking(-0.8)
-                .foregroundColor(.niboForest)
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                NiboBrand(size: 18, color: .niboForest)
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
         .padding(.top, 8)
-        .padding(.bottom, 14)
+        .padding(.bottom, 16)
     }
 
-    // MARK: Streak pill
-
-    var streakPill: some View {
-        Button(action: { showAchievements = true }) {
-            HStack(spacing: 6) {
-                Text(streakEmoji(appState.streak)).font(.system(size: 14))
-                Text("\(appState.streak) day streak")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.primary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 5)
-            .padding(.leading, 10)
-            .padding(.trailing, 10)
-            .background(
-                Capsule()
-                    .fill(Color.niboWhite)
-                    .overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-            )
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 18)
-    }
-
-    // MARK: Day picker
-
-    var dayPicker: some View {
-        let canGoForward = !isToday
-        let dayLabel: String = {
-            if isToday { return "Today" }
-            if Calendar.current.isDateInYesterday(displayDate) { return "Yesterday" }
-            let f = DateFormatter()
-            f.dateFormat = "EEEE"
-            return f.string(from: displayDate)
-        }()
-        let subLabel: String = {
-            let f = DateFormatter()
-            f.dateFormat = "MMM d"
-            return f.string(from: displayDate)
-        }()
-        return HStack(spacing: 14) {
+    var dayNavPill: some View {
+        HStack(spacing: 10) {
             Button {
                 if let prev = Calendar.current.date(byAdding: .day, value: -1, to: displayDate) {
                     withAnimation(.easeInOut(duration: 0.2)) { displayDate = prev }
                 }
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 32, height: 32)
-                    .background(
-                        Circle()
-                            .fill(Color.niboWhite)
-                            .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-                    )
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.niboSoftGray)
+                    .frame(width: 22, height: 22)
             }
 
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { displayDate = Date() }
             } label: {
-                VStack(spacing: 1) {
-                    Text(dayLabel)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primary)
-                    Text(subLabel)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                .frame(minWidth: 110)
+                Text(dayLabel)
+                    .font(NiboFont.inter(12, weight: .semibold))
+                    .foregroundColor(.niboForest)
+                    .tracking(0.5)
+                    .textCase(.uppercase)
+                    .frame(minWidth: 70)
+                    .monospacedDigit()
             }
             .buttonStyle(.plain)
 
             Button {
-                guard canGoForward,
+                guard !isToday,
                       let next = Calendar.current.date(byAdding: .day, value: 1, to: displayDate)
                 else { return }
                 withAnimation(.easeInOut(duration: 0.2)) { displayDate = next }
             } label: {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(canGoForward ? .secondary : .tertiary)
-                    .frame(width: 32, height: 32)
-                    .background(
-                        Circle()
-                            .fill(Color.niboWhite)
-                            .overlay(Circle().stroke(Color.primary.opacity(0.08), lineWidth: 1))
-                    )
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(isToday ? .niboSoftGray.opacity(0.35) : .niboSoftGray)
+                    .frame(width: 22, height: 22)
             }
-            .disabled(!canGoForward)
+            .disabled(isToday)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 12)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            Capsule()
+                .fill(Color.niboWhite)
+                .overlay(Capsule().stroke(Color.niboHairline, lineWidth: 1))
+        )
     }
 
     // MARK: Ring + goal button
