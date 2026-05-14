@@ -68,6 +68,57 @@ private struct ItemJSON: Codable {
     }
 }
 
+private func flexInt(_ c: KeyedDecodingContainer<MenuJSON.ItemJSON.CodingKeys>,
+                     _ key: MenuJSON.ItemJSON.CodingKeys) -> Int {
+    if let i = try? c.decode(Int.self, forKey: key) { return i }
+    if let d = try? c.decode(Double.self, forKey: key) { return Int(d.rounded()) }
+    if let s = try? c.decode(String.self, forKey: key),
+       let d = Double(s.replacingOccurrences(of: ",", with: ".")) { return Int(d.rounded()) }
+    return 0
+}
+
+private struct MenuJSON: Codable {
+    struct ItemJSON: Codable {
+        let name: String
+        let kcal: Int
+        let protein: Int
+        let carbs: Int
+        let fat: Int
+        let quality: Int
+        let note: String
+
+        enum CodingKeys: String, CodingKey {
+            case name, kcal, protein, carbs, fat, quality, note
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            name    = (try? c.decode(String.self, forKey: .name)) ?? ""
+            kcal    = flexInt(c, .kcal)
+            protein = flexInt(c, .protein)
+            carbs   = flexInt(c, .carbs)
+            fat     = flexInt(c, .fat)
+            quality = min(100, max(0, flexInt(c, .quality)))
+            note    = (try? c.decode(String.self, forKey: .note)) ?? ""
+        }
+    }
+
+    let items: [ItemJSON]
+    let recommendationIndex: Int?
+    let recommendationReason: String
+
+    private enum CodingKeys: String, CodingKey {
+        case items, recommendationIndex, recommendationReason
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        items = (try? c.decode([ItemJSON].self, forKey: .items)) ?? []
+        recommendationIndex = try? c.decodeIfPresent(Int.self, forKey: .recommendationIndex)
+        recommendationReason = (try? c.decode(String.self, forKey: .recommendationReason)) ?? ""
+    }
+}
+
 // MARK: - ClaudeService
 
 class ClaudeService {
@@ -280,6 +331,124 @@ class ClaudeService {
 
         let userContent: [[String: Any]] = [["type": "text", "text": prompt]]
         return try await runMessages(content: userContent, apiKey: apiKey)
+    }
+
+    /// Analyse a restaurant / delivery menu photo. Returns every dish
+    /// with estimated nutrition + a 0–100 score, plus Claude's single
+    /// best pick given how much room is left in the user's day.
+    func analyzeMenu(image: UIImage,
+                     caloriesEaten: Int,
+                     calorieGoal: Int,
+                     apiKey: String,
+                     language: AppLanguage = .system) async throws -> MenuAnalysis {
+        let resized = Self.resize(image, maxDim: 1280)
+        guard let imageData = resized.jpegData(compressionQuality: 0.78) else {
+            throw AnalysisError.imageConversion
+        }
+        let base64 = imageData.base64EncodedString()
+        let remaining = max(0, calorieGoal - caloriesEaten)
+
+        let prompt = """
+        This is a photo of a food menu (restaurant or delivery app).
+
+        Context about the user today:
+        - Calorie goal: \(calorieGoal) kcal
+        - Already eaten: \(caloriesEaten) kcal
+        - Remaining budget: \(remaining) kcal
+
+        Identify EVERY distinct dish/drink visible on the menu. For each one
+        estimate nutrition for a typical serving and a 0–100 nutrition score
+        (higher = more nutritious: lean protein, whole foods, balanced macros
+        score high; deep-fried, sugary, very fatty score low).
+
+        Then pick the single best dish for this user given their remaining
+        budget AND nutrition quality — something that fits the calories left
+        and is a genuinely good choice, not just the lowest-calorie item.
+
+        Return ONLY a JSON object — no markdown, no preamble. First char "{".
+
+        {
+          "items": [
+            { "name": "Dish name", "kcal": 650, "protein": 35, "carbs": 60,
+              "fat": 25, "quality": 72, "note": "one short line on the fit" }
+          ],
+          "recommendationIndex": 0,
+          "recommendationReason": "one or two sentences on why this is the pick"
+        }
+
+        Rules:
+        - ALWAYS return JSON, never refuse. If the photo isn't a menu, return
+          an empty items array and explain in recommendationReason.
+        - 1–20 items. Skip section headers, prices, and non-food text.
+        - recommendationIndex points into items; use null if nothing fits well.
+        - "note" is max ~8 words, e.g. "lean, fits your budget" / "heavy, save for later".
+        \(Self.languageInstruction(language))
+        """
+
+        let userContent: [[String: Any]] = [
+            [
+                "type": "image",
+                "source": [
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": base64
+                ]
+            ],
+            ["type": "text", "text": prompt]
+        ]
+
+        let requestBody: [String: Any] = [
+            "model": "claude-opus-4-7",
+            "max_tokens": 2000,
+            "messages": [["role": "user", "content": userContent]]
+        ]
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        request.timeoutInterval = 45
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AnalysisError.invalidResponse
+        }
+        guard httpResponse.statusCode == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw AnalysisError.httpError(httpResponse.statusCode, body)
+        }
+
+        let claudeResponse = try JSONDecoder().decode(ClaudeResponse.self, from: data)
+        guard let text = claudeResponse.content.first(where: { $0.type == "text" })?.text else {
+            throw AnalysisError.noText
+        }
+        let jsonText = extractJSON(from: text)
+        guard let jsonData = jsonText.data(using: .utf8) else {
+            throw AnalysisError.parseError
+        }
+        let menu = try JSONDecoder().decode(MenuJSON.self, from: jsonData)
+
+        let items = menu.items.map {
+            MenuItem(name: $0.name,
+                     kcal: max(0, $0.kcal),
+                     protein: max(0, $0.protein),
+                     carbs: max(0, $0.carbs),
+                     fat: max(0, $0.fat),
+                     quality: $0.quality,
+                     note: $0.note)
+        }
+        // Validate the recommendation index points somewhere real.
+        let recIndex: Int? = {
+            guard let i = menu.recommendationIndex, items.indices.contains(i) else { return nil }
+            return i
+        }()
+        return MenuAnalysis(
+            items: items,
+            recommendationIndex: recIndex,
+            recommendationReason: menu.recommendationReason
+        )
     }
 
     private func runMessages(content: [[String: Any]], apiKey: String) async throws -> FoodAnalysis {

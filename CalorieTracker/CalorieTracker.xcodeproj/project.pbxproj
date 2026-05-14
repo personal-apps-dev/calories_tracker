@@ -22,6 +22,7 @@
 		B10000000000000000000010 /* MealDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* MealDetailView.swift */; };
 		B10000000000000000000011 /* NutritionSummarySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* NutritionSummarySheet.swift */; };
 		B10000000000000000000012 /* AppleSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* AppleSignInView.swift */; };
+		B10000000000000000000013 /* MenuResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* MenuResultView.swift */; };
 		B10000000000000000000020 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
@@ -43,6 +44,7 @@
 		A10000000000000000000010 /* MealDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealDetailView.swift; sourceTree = "<group>"; };
 		A10000000000000000000011 /* NutritionSummarySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionSummarySheet.swift; sourceTree = "<group>"; };
 		A10000000000000000000012 /* AppleSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInView.swift; sourceTree = "<group>"; };
+		A10000000000000000000013 /* MenuResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuResultView.swift; sourceTree = "<group>"; };
 		A10000000000000000000021 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A10000000000000000000022 /* uk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk; path = uk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A10000000000000000000023 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -86,6 +88,7 @@
 				A10000000000000000000010 /* MealDetailView.swift */,
 				A10000000000000000000011 /* NutritionSummarySheet.swift */,
 				A10000000000000000000012 /* AppleSignInView.swift */,
+				A10000000000000000000013 /* MenuResultView.swift */,
 				A1000000000000000000000E /* CalorieTracker.entitlements */,
 				A10000000000000000000020 /* Localizable.strings */,
 				A10000000000000000000009 /* Assets.xcassets */,
@@ -209,6 +212,7 @@
 				B10000000000000000000010 /* MealDetailView.swift in Sources */,
 				B10000000000000000000011 /* NutritionSummarySheet.swift in Sources */,
 				B10000000000000000000012 /* AppleSignInView.swift in Sources */,
+				B10000000000000000000013 /* MenuResultView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
