@@ -365,13 +365,42 @@ struct ViewfinderView: View {
                 MockFoodScene()
             }
 
-            // Reticle overlay
-            ReticleOverlay()
+            // Reticle overlay — square for meals, tall A4-ish for menus
+            ReticleOverlay(portrait: scanMode == .menu)
 
             // Top controls
             VStack {
                 HStack {
                     GlassButton(sfName: "xmark", action: onClose)
+                    Spacer()
+
+                    // Mode dropdown — pick what you're photographing
+                    Menu {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { scanMode = .meal }
+                        } label: {
+                            Label("Meal", systemImage: scanMode == .meal ? "checkmark" : "fork.knife")
+                        }
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { scanMode = .menu }
+                        } label: {
+                            Label("Menu", systemImage: scanMode == .menu ? "checkmark" : "list.bullet.rectangle")
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(scanMode == .menu ? "📋" : "🍽️").font(.system(size: 13))
+                            Text(scanMode == .menu ? "Menu" : "Meal")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(Capsule().fill(Color.black.opacity(0.55)))
+                    }
+
                     Spacer()
                     GlassButton(sfName: "questionmark.circle", action: {})
                 }
@@ -399,28 +428,6 @@ struct ViewfinderView: View {
             // Bottom controls
             VStack {
                 Spacer()
-
-                // Meal / Menu mode toggle
-                HStack(spacing: 4) {
-                    ForEach([ScanMode.meal, ScanMode.menu], id: \.self) { mode in
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) { scanMode = mode }
-                        } label: {
-                            Text(mode == .meal ? "Meal" : "Menu")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(scanMode == mode ? .black : .white)
-                                .padding(.vertical, 7)
-                                .padding(.horizontal, 18)
-                                .background(
-                                    Capsule().fill(scanMode == mode
-                                                   ? Color.white
-                                                   : Color.white.opacity(0.14))
-                                )
-                        }
-                    }
-                }
-                .padding(.bottom, 22)
-
                 HStack(spacing: 60) {
                     PhotosPicker(selection: $pickerItem, matching: .images) {
                         SmallCameraButton(sfName: "photo.on.rectangle")
@@ -798,10 +805,14 @@ struct MacroChip: View {
 struct ReticleOverlay: View {
     var isAnalyzing: Bool = false
     var scanY: CGFloat = 8  // starts just inside top bracket
+    /// Menu mode wants a tall, A4-ish capture frame for a document;
+    /// meal mode keeps the square.
+    var portrait: Bool = false
 
-    private let size: CGFloat = 300
-    private let len: CGFloat = 36
     private let w: CGFloat = 3
+    private let len: CGFloat = 36
+    private var width: CGFloat { portrait ? 272 : 300 }
+    private var height: CGFloat { portrait ? 384 : 300 }  // ~1:1.41, A4-ish
 
     var body: some View {
         ZStack {
@@ -813,33 +824,33 @@ struct ReticleOverlay: View {
 
             // Top-Right corner
             Rectangle().fill(accentOrange).frame(width: len, height: w)
-                .position(x: size - len / 2, y: w / 2)
+                .position(x: width - len / 2, y: w / 2)
             Rectangle().fill(accentOrange).frame(width: w, height: len)
-                .position(x: size - w / 2, y: len / 2)
+                .position(x: width - w / 2, y: len / 2)
 
             // Bottom-Left corner
             Rectangle().fill(accentOrange).frame(width: len, height: w)
-                .position(x: len / 2, y: size - w / 2)
+                .position(x: len / 2, y: height - w / 2)
             Rectangle().fill(accentOrange).frame(width: w, height: len)
-                .position(x: w / 2, y: size - len / 2)
+                .position(x: w / 2, y: height - len / 2)
 
             // Bottom-Right corner
             Rectangle().fill(accentOrange).frame(width: len, height: w)
-                .position(x: size - len / 2, y: size - w / 2)
+                .position(x: width - len / 2, y: height - w / 2)
             Rectangle().fill(accentOrange).frame(width: w, height: len)
-                .position(x: size - w / 2, y: size - len / 2)
+                .position(x: width - w / 2, y: height - len / 2)
 
             // Animated scan line
             if isAnalyzing {
                 Rectangle()
                     .fill(accentOrange)
-                    .frame(width: size - 16, height: 2)
+                    .frame(width: width - 16, height: 2)
                     .shadow(color: accentOrange, radius: 6)
                     .shadow(color: accentOrange.opacity(0.4), radius: 12)
-                    .position(x: size / 2, y: scanY)
+                    .position(x: width / 2, y: scanY)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: width, height: height)
     }
 }
 
