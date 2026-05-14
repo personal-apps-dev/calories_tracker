@@ -5,7 +5,8 @@ import UIKit
 
 // MARK: - Camera Flow Coordinator
 
-enum CameraPhase { case viewfinder, analyzing, result, error }
+enum CameraPhase { case viewfinder, analyzing, result, menuResult, error }
+enum ScanMode { case meal, menu }
 
 struct CameraFlowView: View {
     let onClose: () -> Void
@@ -13,7 +14,9 @@ struct CameraFlowView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var camera = CameraManager()
     @State private var phase: CameraPhase = .viewfinder
+    @State private var scanMode: ScanMode = .meal
     @State private var analysis: FoodAnalysis?
+    @State private var menuAnalysis: MenuAnalysis?
     @State private var analysisError: String?
     @State private var showTextEntry = false
 
@@ -25,12 +28,14 @@ struct CameraFlowView: View {
             case .viewfinder:
                 ViewfinderView(
                     camera: camera,
+                    scanMode: $scanMode,
                     onCapture: { startAnalysis() },
                     onClose: onClose,
                     onDescribe: { showTextEntry = true }
                 )
             case .analyzing:
-                AnalyzingView(onClose: onClose)
+                AnalyzingView(onClose: onClose,
+                              caption: scanMode == .menu ? "Reading the menu…" : nil)
             case .result:
                 if let analysis {
                     ResultView(
@@ -38,6 +43,17 @@ struct CameraFlowView: View {
                         onClose: onClose,
                         onLog: { mealType in
                             logMeal(analysis: analysis, mealType: mealType)
+                            onClose()
+                        }
+                    )
+                }
+            case .menuResult:
+                if let menuAnalysis {
+                    MenuResultView(
+                        analysis: menuAnalysis,
+                        onClose: onClose,
+                        onLog: { item in
+                            logMenuItem(item)
                             onClose()
                         }
                     )
@@ -55,13 +71,66 @@ struct CameraFlowView: View {
         .onChange(of: camera.capturedImage) { image in
             guard let image, phase == .viewfinder else { return }
             phase = .analyzing
-            Task { await analyzeWithClaude(image: image) }
+            switch scanMode {
+            case .meal: Task { await analyzeWithClaude(image: image) }
+            case .menu: Task { await analyzeMenu(image: image) }
+            }
         }
         .sheet(isPresented: $showTextEntry) {
             DescribeMealSheet { description in
                 showTextEntry = false
                 phase = .analyzing
                 Task { await analyzeText(description) }
+            }
+        }
+    }
+
+    @MainActor
+    private func logMenuItem(_ item: MenuItem) {
+        let meal = LoggedMeal(
+            type: mealTypeForNow(),
+            emoji: mealEmojiFor(name: item.name, type: mealTypeForNow()),
+            name: item.name,
+            kcal: item.kcal,
+            protein: item.protein,
+            carbs: item.carbs,
+            fat: item.fat,
+            quality: item.quality
+        )
+        appState.logMeal(meal)
+    }
+
+    private func analyzeMenu(image: UIImage) async {
+        guard !appState.claudeApiKey.isEmpty else {
+            await MainActor.run {
+                analysisError = "No API key set. Add your Anthropic API key in the Profile tab."
+                phase = .error
+            }
+            return
+        }
+        do {
+            let result = try await ClaudeService.shared.analyzeMenu(
+                image: image,
+                caloriesEaten: appState.todayConsumedKcal,
+                calorieGoal: appState.effectiveGoalToday,
+                apiKey: appState.claudeApiKey,
+                language: appState.appLanguage
+            )
+            await MainActor.run {
+                if result.items.isEmpty {
+                    analysisError = result.recommendationReason.isEmpty
+                        ? "Couldn't find any dishes on that photo. Try a clearer shot of the menu."
+                        : result.recommendationReason
+                    phase = .error
+                } else {
+                    menuAnalysis = result
+                    phase = .menuResult
+                }
+            }
+        } catch {
+            await MainActor.run {
+                analysisError = error.localizedDescription
+                phase = .error
             }
         }
     }
@@ -273,11 +342,18 @@ struct DescribeMealSheet: View {
 
 struct ViewfinderView: View {
     @ObservedObject var camera: CameraManager
+    @Binding var scanMode: ScanMode
     let onCapture: () -> Void
     let onClose: () -> Void
     var onDescribe: () -> Void = {}
 
     @State private var pickerItem: PhotosPickerItem?
+
+    private var hintText: String {
+        scanMode == .menu
+            ? "Point at a menu — we'll rank the dishes"
+            : "Point at your meal to scan"
+    }
 
     var body: some View {
         ZStack {
@@ -306,15 +382,15 @@ struct ViewfinderView: View {
                     .fill(Color.black.opacity(0.5))
                     .overlay(
                         HStack(spacing: 8) {
-                            Text("✨").font(.system(size: 13))
-                            Text("Point at your meal to scan")
+                            Text(scanMode == .menu ? "📋" : "✨").font(.system(size: 13))
+                            Text(hintText)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.white)
                         }
                         .padding(.horizontal, 16)
                     )
                     .frame(height: 36)
-                    .frame(maxWidth: 240)
+                    .frame(maxWidth: 300)
                     .padding(.top, 16)
 
                 Spacer()
@@ -323,6 +399,28 @@ struct ViewfinderView: View {
             // Bottom controls
             VStack {
                 Spacer()
+
+                // Meal / Menu mode toggle
+                HStack(spacing: 4) {
+                    ForEach([ScanMode.meal, ScanMode.menu], id: \.self) { mode in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { scanMode = mode }
+                        } label: {
+                            Text(mode == .meal ? "Meal" : "Menu")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(scanMode == mode ? .black : .white)
+                                .padding(.vertical, 7)
+                                .padding(.horizontal, 18)
+                                .background(
+                                    Capsule().fill(scanMode == mode
+                                                   ? Color.white
+                                                   : Color.white.opacity(0.14))
+                                )
+                        }
+                    }
+                }
+                .padding(.bottom, 22)
+
                 HStack(spacing: 60) {
                     PhotosPicker(selection: $pickerItem, matching: .images) {
                         SmallCameraButton(sfName: "photo.on.rectangle")
@@ -331,8 +429,10 @@ struct ViewfinderView: View {
                     Button(action: onDescribe) {
                         SmallCameraButton(sfName: "text.bubble")
                     }
+                    .disabled(scanMode == .menu)
+                    .opacity(scanMode == .menu ? 0.35 : 1)
                 }
-                .padding(.bottom, 60)
+                .padding(.bottom, 56)
             }
         }
         .onChange(of: pickerItem) { newItem in
@@ -352,6 +452,7 @@ struct ViewfinderView: View {
 
 struct AnalyzingView: View {
     let onClose: () -> Void
+    var caption: String? = nil
     @State private var scanY: CGFloat = 0
 
     var body: some View {
@@ -377,7 +478,7 @@ struct AnalyzingView: View {
                                 .frame(width: 6, height: 6)
                                 .opacity(0.8)
                                 .animation(.easeInOut(duration: 0.8).repeatForever(), value: scanY)
-                            Text("Analyzing food…")
+                            Text(caption ?? "Analyzing food…")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.white)
                         }

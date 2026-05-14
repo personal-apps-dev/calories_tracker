@@ -53,6 +53,29 @@ struct FoodAnalysis {
     let items: [AnalysisIngredient]
 }
 
+// MARK: - Menu scanning
+
+struct MenuItem: Identifiable {
+    let id = UUID()
+    let name: String
+    let kcal: Int
+    let protein: Int
+    let carbs: Int
+    let fat: Int
+    /// 0–100 nutrition score, same scale as a logged meal's quality.
+    let quality: Int
+    /// One short line on why it does / doesn't fit the user's day.
+    let note: String
+}
+
+struct MenuAnalysis {
+    let items: [MenuItem]
+    /// Index into `items` of Claude's single best pick for the user's
+    /// remaining budget + nutrition. nil if nothing's a good fit.
+    let recommendationIndex: Int?
+    let recommendationReason: String
+}
+
 struct TrendEntry {
     let label: String
     let consumed: Int

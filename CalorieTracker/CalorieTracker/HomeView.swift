@@ -81,39 +81,45 @@ struct HomeView: View {
             dayNavPill
 
             HStack(spacing: 8) {
-                // Avatar → profile
-                Button(action: onAvatarTap) {
-                    Circle()
-                        .fill(Color.niboForest)
-                        .frame(width: 34, height: 34)
-                        .overlay(
-                            Text(initials(for: appState.userName))
-                                .font(NiboFont.inter(13, weight: .medium))
-                                .foregroundColor(.niboCream)
+                // Avatar overlapping the streak chip's left edge (WHOOP-style).
+                ZStack(alignment: .leading) {
+                    // Streak chip → achievements. Extra leading padding
+                    // leaves room for the avatar to sit on top of it.
+                    Button { showAchievements = true } label: {
+                        HStack(spacing: 4) {
+                            Text(streakEmoji(appState.streak))
+                                .font(.system(size: 12))
+                            Text("\(appState.streak)")
+                                .font(NiboFont.inter(13, weight: .semibold))
+                                .foregroundColor(.niboForest)
+                                .monospacedDigit()
+                        }
+                        .padding(.vertical, 7)
+                        .padding(.leading, 32)
+                        .padding(.trailing, 11)
+                        .background(
+                            Capsule()
+                                .fill(Color.niboWhite)
+                                .overlay(Capsule().stroke(Color.niboHairline, lineWidth: 1))
                         )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open profile")
-
-                // Streak → achievements
-                Button { showAchievements = true } label: {
-                    HStack(spacing: 4) {
-                        Text(streakEmoji(appState.streak))
-                            .font(.system(size: 12))
-                        Text("\(appState.streak)")
-                            .font(NiboFont.inter(13, weight: .semibold))
-                            .foregroundColor(.niboForest)
-                            .monospacedDigit()
                     }
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 10)
-                    .background(
-                        Capsule()
-                            .fill(Color.niboWhite)
-                            .overlay(Capsule().stroke(Color.niboHairline, lineWidth: 1))
-                    )
+                    .buttonStyle(.plain)
+
+                    // Avatar → profile, drawn on top of the chip's left edge.
+                    Button(action: onAvatarTap) {
+                        Circle()
+                            .fill(Color.niboForest)
+                            .frame(width: 34, height: 34)
+                            .overlay(
+                                Text(initials(for: appState.userName))
+                                    .font(NiboFont.inter(13, weight: .medium))
+                                    .foregroundColor(.niboCream)
+                            )
+                            .overlay(Circle().stroke(Color.niboCream, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open profile")
                 }
-                .buttonStyle(.plain)
 
                 Spacer()
 
