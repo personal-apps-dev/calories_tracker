@@ -14,11 +14,18 @@ struct CameraFlowView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var camera = CameraManager()
     @State private var phase: CameraPhase = .viewfinder
-    @State private var scanMode: ScanMode = .meal
+    @State private var scanMode: ScanMode
     @State private var analysis: FoodAnalysis?
     @State private var menuAnalysis: MenuAnalysis?
     @State private var analysisError: String?
     @State private var showTextEntry = false
+
+    /// `initialMode` is chosen from the tab-bar dropdown before the
+    /// camera opens, so the viewfinder starts in the right mode.
+    init(initialMode: ScanMode = .meal, onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        _scanMode = State(initialValue: initialMode)
+    }
 
     var body: some View {
         ZStack {

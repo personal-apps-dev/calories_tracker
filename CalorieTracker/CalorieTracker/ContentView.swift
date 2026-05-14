@@ -6,6 +6,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var activeTab: AppTab = .home
     @State private var showCamera = false
+    @State private var cameraMode: ScanMode = .meal
     @State private var showGoalSheet = false
     @State private var showNamePrompt = false
     @State private var nameDraft = ""
@@ -14,7 +15,8 @@ struct ContentView: View {
         ZStack(alignment: .bottom) {
             tabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            CustomTabBar(activeTab: $activeTab) {
+            CustomTabBar(activeTab: $activeTab) { mode in
+                cameraMode = mode
                 showCamera = true
             }
         }
@@ -25,7 +27,7 @@ struct ContentView: View {
                 .presentationDragIndicator(.visible)
         }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraFlowView(onClose: { showCamera = false })
+            CameraFlowView(initialMode: cameraMode, onClose: { showCamera = false })
         }
         .onAppear {
             let bare = appState.userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -68,14 +70,29 @@ struct ContentView: View {
 
 struct CustomTabBar: View {
     @Binding var activeTab: AppTab
-    let onCamera: () -> Void
+    /// Called with the chosen scan mode once the user picks from the
+    /// camera-button dropdown.
+    let onCamera: (ScanMode) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
             TabBtn(sfName: "house.fill",    isActive: activeTab == .home)  { activeTab = .home }
             TabBtn(sfName: "list.bullet",   isActive: activeTab == .diary) { activeTab = .diary }
 
-            Button(action: onCamera) {
+            // Camera button → dropdown right here on the current screen.
+            // Pick what you're shooting before the camera opens.
+            Menu {
+                Button {
+                    onCamera(.meal)
+                } label: {
+                    Label("Take a photo of a meal", systemImage: "fork.knife")
+                }
+                Button {
+                    onCamera(.menu)
+                } label: {
+                    Label("Scan a menu", systemImage: "list.bullet.rectangle")
+                }
+            } label: {
                 ZStack {
                     Circle()
                         .fill(accentOrange)
@@ -83,7 +100,7 @@ struct CustomTabBar: View {
                         .shadow(color: accentOrange.opacity(0.4), radius: 12, y: 4)
                     Image(systemName: "camera.fill")
                         .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.niboForest)
                 }
             }
             .offset(y: -14)
